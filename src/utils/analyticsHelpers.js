@@ -1,0 +1,561 @@
+/**
+ * Normalize CRM lead statuses to a standard set for dashboard visualization.
+ * Existing statuses in LeadContext: 'New', 'Contacted', 'Meeting Scheduled', 'Proposal Sent', 'Won', 'Lost'
+ * Target standard set: 'New', 'Contacted', 'Meeting', 'Proposal', 'Won', 'Lost'
+ */
+export const normalizeStatus = (status) => {
+  if (!status) return "New";
+  const s = status.trim();
+  if (s === "Meeting Scheduled" || s === "Meeting") return "Meeting";
+  if (s === "Proposal Sent" || s === "Proposal") return "Proposal";
+  return s;
+};
+
+/**
+ * Normalizes lead source channels.
+ */
+export const normalizeSource = (source) => {
+  if (!source) return "Other";
+  const s = source.trim();
+  if (s === "Cold Call") return "Cold Call";
+  if (s === "Email Campaign" || s === "Cold Email") return "Cold Email";
+  return s;
+};
+
+/**
+ * Safely parse date from various formats
+ */
+const safeParseDate = (dateStr) => {
+  if (!dateStr) return null;
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+/**
+ * Get distribution of leads across normalized statuses
+ */
+export const getStatusDistribution = (leads = []) => {
+  if (!Array.isArray(leads) || leads.length === 0) return [];
+
+  const counts = {
+    Won: 0,
+    Proposal: 0,
+    Meeting: 0,
+    Contacted: 0,
+    New: 0,
+    Lost: 0,
+  };
+
+  leads.forEach((lead) => {
+    if (!lead) return;
+    const normalized = normalizeStatus(lead.status);
+    if (counts[normalized] !== undefined) {
+      counts[normalized]++;
+    } else {
+      counts.New++; // Fallback
+    }
+  });
+
+  const total = leads.length;
+  const statusColors = {
+    New: "#94A3B8",
+    Contacted: "#2563EB",
+    Meeting: "#F59E0B",
+    Proposal: "#7C3AED",
+    Won: "#22C55E",
+    Lost: "#EF4444",
+  };
+
+  // Order of display: Won, Proposal, Meeting, Contacted, New, Lost
+  return ["Won", "Proposal", "Meeting", "Contacted", "New", "Lost"].map((status) => {
+    const count = counts[status];
+    const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+    return {
+      name: status,
+      value: count,
+      count: count,
+      percentage: percentage,
+      color: statusColors[status],
+    };
+  });
+};
+
+/**
+ * Get chronological monthly leads counts for the last 6 months
+ */
+export const getMonthlyLeads = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const result = [];
+  const now = new Date();
+
+  // Generate last 6 months in chronological order
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthIdx = d.getMonth();
+    const year = d.getFullYear();
+    result.push({
+      monthIdx,
+      year,
+      month: monthNames[monthIdx],
+      Leads: 0, // Key to render on the BarChart
+    });
+  }
+
+  leads.forEach((lead) => {
+    if (!lead || !lead.createdAt) return;
+    const createdDate = safeParseDate(lead.createdAt);
+    if (!createdDate) return;
+
+    const leadMonth = createdDate.getMonth();
+    const leadYear = createdDate.getFullYear();
+
+    const monthBucket = result.find((item) => item.monthIdx === leadMonth && item.year === leadYear);
+    if (monthBucket) {
+      monthBucket.Leads++;
+    }
+  });
+
+  // Remove helper fields before returning
+  return result.map(({ month, Leads }) => ({ month, Leads }));
+};
+
+/**
+ * Get month-over-month conversion rates (Won / Total Created) for the last 6 months
+ */
+export const getConversionByMonth = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const result = [];
+  const now = new Date();
+
+  // Generate last 6 months structure
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthIdx = d.getMonth();
+    const year = d.getFullYear();
+    result.push({
+      monthIdx,
+      year,
+      month: monthNames[monthIdx],
+      wonCount: 0,
+      totalCount: 0,
+    });
+  }
+
+  leads.forEach((lead) => {
+    if (!lead || !lead.createdAt) return;
+    const createdDate = safeParseDate(lead.createdAt);
+    if (!createdDate) return;
+
+    const leadMonth = createdDate.getMonth();
+    const leadYear = createdDate.getFullYear();
+
+    const monthBucket = result.find((item) => item.monthIdx === leadMonth && item.year === leadYear);
+    if (monthBucket) {
+      monthBucket.totalCount++;
+      if (normalizeStatus(lead.status) === "Won") {
+        monthBucket.wonCount++;
+      }
+    }
+  });
+
+  return result.map(({ month, wonCount, totalCount }) => {
+    const rate = totalCount > 0 ? Math.round((wonCount / totalCount) * 100) : 0;
+    return {
+      month,
+      Conversion: rate, // Conversion percentage key for LineChart
+    };
+  });
+};
+
+/**
+ * Get revenue generated by Won deals grouped by their closing/creation month for the last 6 months
+ */
+export const getRevenueByMonth = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const result = [];
+  const now = new Date();
+
+  // Generate last 6 months structure
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthIdx = d.getMonth();
+    const year = d.getFullYear();
+    result.push({
+      monthIdx,
+      year,
+      month: monthNames[monthIdx],
+      Revenue: 0, // Key to render on AreaChart
+    });
+  }
+
+  leads.forEach((lead) => {
+    if (!lead || normalizeStatus(lead.status) !== "Won") return;
+    // Prefer wonAt, fallback to createdAt
+    const closingDate = safeParseDate(lead.wonAt) || safeParseDate(lead.createdAt);
+    if (!closingDate) return;
+
+    const closingMonth = closingDate.getMonth();
+    const closingYear = closingDate.getFullYear();
+
+    const monthBucket = result.find((item) => item.monthIdx === closingMonth && item.year === closingYear);
+    if (monthBucket) {
+      const value = Number(lead.value) || 0;
+      monthBucket.Revenue += value;
+    }
+  });
+
+  return result.map(({ month, Revenue }) => ({ month, Revenue }));
+};
+
+/**
+ * Sum value of active leads (neither Won nor Lost)
+ */
+export const getPipelineValue = (leads = []) => {
+  if (!Array.isArray(leads)) return 0;
+  return leads.reduce((sum, lead) => {
+    if (!lead) return sum;
+    const status = normalizeStatus(lead.status);
+    if (status !== "Won" && status !== "Lost") {
+      const val = Number(lead.value) || 0;
+      return sum + val;
+    }
+    return sum;
+  }, 0);
+};
+
+/**
+ * Sum value of closed Won leads
+ */
+export const getWonRevenue = (leads = []) => {
+  if (!Array.isArray(leads)) return 0;
+  return leads.reduce((sum, lead) => {
+    if (!lead) return sum;
+    const status = normalizeStatus(lead.status);
+    if (status === "Won") {
+      const val = Number(lead.value) || 0;
+      return sum + val;
+    }
+    return sum;
+  }, 0);
+};
+
+/**
+ * Calculate average sales cycle (wonAt - createdAt) in days for Won leads
+ */
+export const getAverageSalesCycle = (leads = []) => {
+  if (!Array.isArray(leads)) return 0;
+
+  const wonLeads = leads.filter((lead) => {
+    if (!lead) return false;
+    return normalizeStatus(lead.status) === "Won";
+  });
+
+  if (wonLeads.length === 0) return 0;
+
+  let totalDays = 0;
+  let validDeals = 0;
+
+  wonLeads.forEach((lead) => {
+    const created = safeParseDate(lead.createdAt);
+    const won = safeParseDate(lead.wonAt);
+
+    if (created && won) {
+      const diffTime = won.getTime() - created.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // Defensive check for negative days or timing anomalies
+      if (diffDays >= 0) {
+        totalDays += diffDays;
+        validDeals++;
+      }
+    }
+  });
+
+  return validDeals > 0 ? Math.round(totalDays / validDeals) : 0;
+};
+
+/**
+ * Get Lost Rate percentage (Lost / Total)
+ */
+export const getLostRate = (leads = []) => {
+  if (!Array.isArray(leads) || leads.length === 0) return 0;
+  const lostCount = leads.filter((lead) => lead && normalizeStatus(lead.status) === "Lost").length;
+  return Math.round((lostCount / leads.length) * 100);
+};
+
+/**
+ * Group leads by source and return sorted descending
+ */
+export const getLeadSourceStats = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  const sourceCounts = {};
+  leads.forEach((lead) => {
+    if (!lead) return;
+    const source = lead.source || "Other";
+    sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+  });
+
+  const sourceColors = {
+    Website: "#3B82F6",
+    Referral: "#10B981",
+    LinkedIn: "#0A66C2",
+    Instagram: "#E1306C",
+    Ads: "#F59E0B",
+    "Cold Email": "#6366F1",
+    "Cold Call": "#8B5CF6",
+    "Email Campaign": "#EC4899",
+    Other: "#64748B",
+  };
+
+  return Object.keys(sourceCounts)
+    .map((source) => ({
+      name: source,
+      value: sourceCounts[source],
+      count: sourceCounts[source],
+      color: sourceColors[source] || sourceColors.Other,
+    }))
+    .sort((a, b) => b.value - a.value);
+};
+
+/**
+ * Get conversion and drop-off analytics for each stage in the sales funnel
+ */
+export const getFunnelData = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  // Stages definition
+  const stages = ["New", "Contacted", "Meeting", "Proposal", "Won"];
+  const totalLeads = leads.length;
+
+  if (totalLeads === 0) {
+    return stages.map((stage) => ({
+      stage,
+      count: 0,
+      conversionRate: 0,
+      stageConversion: 0,
+      dropOff: 0,
+    }));
+  }
+
+  // Calculate cumulative counts. If a lead reached a downstream stage, it is counted for all upstream stages.
+  const counts = {
+    New: totalLeads,
+    Contacted: 0,
+    Meeting: 0,
+    Proposal: 0,
+    Won: 0,
+  };
+
+  leads.forEach((lead) => {
+    if (!lead) return;
+    const status = normalizeStatus(lead.status);
+
+    const hasContacted = lead.contactedAt || ["Contacted", "Meeting", "Proposal", "Won"].includes(status);
+    const hasMeeting = lead.meetingAt || ["Meeting", "Proposal", "Won"].includes(status);
+    const hasProposal = lead.proposalAt || ["Proposal", "Won"].includes(status);
+    const hasWon = lead.wonAt || status === "Won";
+
+    if (hasContacted) counts.Contacted++;
+    if (hasMeeting) counts.Meeting++;
+    if (hasProposal) counts.Proposal++;
+    if (hasWon) counts.Won++;
+  });
+
+  const funnelColors = {
+    New: "#3B82F6",       // Blue
+    Contacted: "#60A5FA", // Light Blue
+    Meeting: "#F59E0B",   // Amber
+    Proposal: "#7C3AED",  // Purple
+    Won: "#22C55E",       // Green
+  };
+
+  return stages.map((stage, index) => {
+    const count = counts[stage];
+    const previousStage = index > 0 ? stages[index - 1] : null;
+    const prevCount = previousStage ? counts[previousStage] : totalLeads;
+
+    // Conversion rate relative to the starting stage (New / Total Leads)
+    const conversionRate = Math.round((count / totalLeads) * 100);
+
+    // Conversion rate relative to the immediate previous stage
+    const stageConversion = prevCount > 0 ? Math.round((count / prevCount) * 100) : 0;
+
+    // Drop-off rate from the previous stage
+    const dropOff = prevCount > 0 ? Math.round(((prevCount - count) / prevCount) * 100) : 0;
+
+    return {
+      stage,
+      count,
+      conversionRate,
+      stageConversion: index === 0 ? 100 : stageConversion,
+      dropOff: index === 0 ? 0 : dropOff,
+      fill: funnelColors[stage] || "#64748B",
+    };
+  });
+};
+
+/**
+ * Calculates sales velocity: (Opportunities * Win Rate * Avg Deal Size) / Avg Sales Cycle Length
+ * Returns velocity value in currency per day.
+ */
+export const getSalesVelocity = (leads = []) => {
+  if (!Array.isArray(leads) || leads.length === 0) return 0;
+
+  // 1. Opportunities: leads in active sales pipeline stages
+  const activeLeads = leads.filter((lead) => {
+    if (!lead) return false;
+    const status = normalizeStatus(lead.status);
+    return ["New", "Contacted", "Meeting", "Proposal"].includes(status);
+  });
+  const opportunities = activeLeads.length;
+
+  // 2. Win Rate: Won / Total Leads in the dataset
+  const wonCount = leads.filter((lead) => lead && normalizeStatus(lead.status) === "Won").length;
+  const winRate = leads.length > 0 ? wonCount / leads.length : 0;
+
+  // 3. Avg Deal Size: Average value of Won deals
+  const wonRevenue = getWonRevenue(leads);
+  const avgDealSize = wonCount > 0 ? wonRevenue / wonCount : 0;
+
+  // 4. Sales Cycle Length: Average sales cycle in days
+  const salesCycle = getAverageSalesCycle(leads);
+
+  // Sales cycle must be at least 1 day to avoid division by zero
+  const divisor = salesCycle > 0 ? salesCycle : 1;
+
+  const velocity = (opportunities * winRate * avgDealSize) / divisor;
+  return Math.round(velocity);
+};
+
+/**
+ * Predicts next month's revenue based on average revenue of the last 6 months.
+ */
+export const getForecastRevenue = (leads = []) => {
+  if (!Array.isArray(leads)) return { forecast: 0, confidenceScore: 0 };
+
+  const monthlyRev = getRevenueByMonth(leads);
+  if (monthlyRev.length === 0) return { forecast: 0, confidenceScore: 0 };
+
+  // Calculate sum of revenue across the last 6 months
+  const totalRev = monthlyRev.reduce((sum, item) => sum + item.Revenue, 0);
+  const avgMonthlyRev = Math.round(totalRev / monthlyRev.length);
+
+  // Calculate confidence score based on win rate and pipeline depth
+  const wonCount = leads.filter((lead) => lead && normalizeStatus(lead.status) === "Won").length;
+  const winRate = leads.length > 0 ? wonCount / leads.length : 0;
+
+  // Confidence is stronger if we have a solid win rate and deep active pipeline
+  const pipelineVal = getPipelineValue(leads);
+  const pipelineConfidenceWeight = pipelineVal > 0 ? Math.min(20, Math.round((pipelineVal / (avgMonthlyRev || 1)) * 10)) : 0;
+
+  const baseConfidence = Math.round(winRate * 100);
+  const confidenceScore = Math.max(10, Math.min(95, baseConfidence + pipelineConfidenceWeight));
+
+  return {
+    forecast: avgMonthlyRev,
+    confidenceScore,
+  };
+};
+
+/**
+ * Rank sales owners by their won revenue
+ */
+export const getTopPerformers = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  const repStats = {};
+  leads.forEach((lead) => {
+    if (!lead || normalizeStatus(lead.status) !== "Won" || !lead.owner) return;
+    const owner = lead.owner;
+    const val = Number(lead.value) || 0;
+
+    if (!repStats[owner]) {
+      repStats[owner] = { name: owner, value: 0, count: 0 };
+    }
+    repStats[owner].value += val;
+    repStats[owner].count++;
+  });
+
+  return Object.values(repStats)
+    .sort((a, b) => b.value - a.value)
+    .map((rep, idx) => ({
+      rank: idx + 1,
+      ...rep,
+    }));
+};
+
+/**
+ * Get daily CRM activity counts (leads created, calls logged, meetings held) for the current month
+ * This maps to a contribution heatmap format
+ */
+export const getActivityHeatmapData = (leads = []) => {
+  if (!Array.isArray(leads)) return [];
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  // Find number of days in the current month
+  const numDays = new Date(year, month + 1, 0).getDate();
+  const dailyActivity = {};
+
+  // Initialize heatmap structure for all days in the current month
+  for (let day = 1; day <= numDays; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    dailyActivity[dateStr] = {
+      date: dateStr,
+      count: 0,
+      created: 0,
+      meetings: 0,
+      calls: 0,
+    };
+  }
+
+  leads.forEach((lead) => {
+    if (!lead) return;
+
+    // 1. Created lead activity
+    if (lead.createdAt) {
+      const createdDate = safeParseDate(lead.createdAt);
+      if (createdDate && createdDate.getFullYear() === year && createdDate.getMonth() === month) {
+        const dStr = createdDate.toISOString().split("T")[0];
+        if (dailyActivity[dStr]) {
+          dailyActivity[dStr].created++;
+          dailyActivity[dStr].count++;
+        }
+      }
+    }
+
+    // 2. Meeting activity
+    if (lead.meetingAt) {
+      const meetingDate = safeParseDate(lead.meetingAt);
+      if (meetingDate && meetingDate.getFullYear() === year && meetingDate.getMonth() === month) {
+        const dStr = meetingDate.toISOString().split("T")[0];
+        if (dailyActivity[dStr]) {
+          dailyActivity[dStr].meetings++;
+          dailyActivity[dStr].count++;
+        }
+      }
+    }
+
+    // 3. Calls / contacted activity
+    if (lead.contactedAt) {
+      const contactDate = safeParseDate(lead.contactedAt);
+      if (contactDate && contactDate.getFullYear() === year && contactDate.getMonth() === month) {
+        const dStr = contactDate.toISOString().split("T")[0];
+        if (dailyActivity[dStr]) {
+          dailyActivity[dStr].calls++;
+          dailyActivity[dStr].count++;
+        }
+      }
+    }
+  });
+
+  return Object.values(dailyActivity);
+};
