@@ -6,13 +6,28 @@ export default function DarkModeToggle() {
   const { isDarkMode, toggleTheme } = useTheme();
 
   return (
-    <div className="flex items-center gap-2.5 select-none">
-      <span className="text-xs font-bold text-slate-500 dark:text-slate-450 tracking-tight">
+    <div className="flex items-center gap-2 select-none">
+      <span className="hidden md:inline text-xs font-bold text-slate-500 dark:text-slate-450 tracking-tight">
         {isDarkMode ? "Dark Mode" : "Light Mode"}
       </span>
+
+      {/* Mobile Toggle Button (44x44px Touch Target) */}
       <button
         onClick={toggleTheme}
-        className="relative flex items-center justify-between w-14 h-7 p-1 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 cursor-pointer focus:outline-hidden transition-colors duration-200 shadow-inner"
+        className="md:hidden flex items-center justify-center w-11 h-11 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-650 dark:text-slate-400 active:scale-95 transition-all cursor-pointer"
+        aria-label="Toggle Dark Mode"
+      >
+        {isDarkMode ? (
+          <Sun size={18} className="text-amber-500 stroke-[2]" />
+        ) : (
+          <Moon size={18} className="text-slate-500 stroke-[2]" />
+        )}
+      </button>
+
+      {/* Desktop Sliding Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="hidden md:flex relative items-center justify-between w-14 h-7 p-1 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 cursor-pointer focus:outline-hidden transition-colors duration-200 shadow-inner"
         aria-label="Toggle Dark Mode"
       >
         {/* Sliding thumb */}

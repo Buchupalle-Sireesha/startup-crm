@@ -61,10 +61,10 @@ export default function LeadTable({ leads, onEdit, onDelete, sortBy, sortOrder, 
               <th className="px-6 py-4.5 font-bold">Email</th>
               
               {/* Source */}
-              <th className="px-6 py-4.5 font-bold">Source</th>
+              <th className="hidden lg:table-cell px-6 py-4.5 font-bold">Source</th>
               
               {/* Sortable: Date Added */}
-              <th className="px-6 py-4.5">
+              <th className="hidden lg:table-cell px-6 py-4.5">
                 <button
                   type="button"
                   onClick={() => onSort('dateAdded')}
@@ -133,7 +133,7 @@ export default function LeadTable({ leads, onEdit, onDelete, sortBy, sortOrder, 
                   </td>
                   
                   {/* Source */}
-                  <td className="px-6 py-4">
+                  <td className="hidden lg:table-cell px-6 py-4">
                     <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
                       <Compass size={12} className="text-slate-400 dark:text-slate-500" />
                       <span>{lead.source || 'Other'}</span>
@@ -141,7 +141,7 @@ export default function LeadTable({ leads, onEdit, onDelete, sortBy, sortOrder, 
                   </td>
                   
                   {/* Date Added */}
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs font-medium">
+                  <td className="hidden lg:table-cell px-6 py-4 text-slate-500 dark:text-slate-400 text-xs font-medium">
                     {lead.dateAdded || 'N/A'}
                   </td>
                   

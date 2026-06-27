@@ -71,31 +71,31 @@ export default function Analytics() {
           <StatsCards kpis={data.kpis} />
 
           {/* Section 2: Pie Chart & Funnel Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <PieChartCard data={data.statusDistribution} />
             <FunnelChartCard data={data.funnelData} />
           </div>
 
           {/* Section 3: Monthly Leads & Conversion Trends */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <BarChartCard data={data.monthlyLeads} />
             <LineChartCard data={data.conversionByMonth} />
           </div>
 
           {/* Section 4: Revenue & Lead Sources */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <RevenueChartCard data={data.revenueByMonth} />
             <LeadSourceChart data={data.leadSourceStats} />
           </div>
 
           {/* Section 5: Activity Heatmap & Top Performers */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ActivityHeatmap data={data.activityHeatmap} />
             <TopPerformersCard data={data.topPerformers} />
           </div>
 
           {/* Section 6: Forecast & Sales Velocity */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ForecastCard forecastData={data.forecast} />
             <SalesVelocityCard velocity={data.salesVelocity} />
           </div>

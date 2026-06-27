@@ -165,7 +165,7 @@ export default function Dashboard() {
       </div>
 
       {/* Grid of Metric Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statsList.map((stat, idx) => (
           <StatsCard
             key={idx}
@@ -179,10 +179,10 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Sales Pipeline Trend Chart (Col-span 2) */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 lg:col-span-2 space-y-4 flex flex-col justify-between shadow-xs transition-colors duration-200">
+        {/* Sales Pipeline Trend Chart */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 flex flex-col justify-between shadow-xs transition-colors duration-200">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">Sales Pipeline</h2>
@@ -227,21 +227,21 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Pipeline Overview Distribution Widget (Col-span 1) */}
-        <div className="lg:col-span-1">
+        {/* Pipeline Overview Distribution Widget */}
+        <div>
           <PipelineOverview leads={leads} />
         </div>
       </div>
 
       {/* Bottom Row Grid containing QuickActions and Recent Leads */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Leads list */}
-        <div className="lg:col-span-2">
+        <div>
           <RecentLeads leads={leads} />
         </div>
 
         {/* QuickActions Panel */}
-        <div className="lg:col-span-1">
+        <div>
           <QuickActions 
             onAddLead={() => setIsModalOpen(true)}
             onViewLeads={() => navigate('/leads')}
@@ -252,7 +252,7 @@ export default function Dashboard() {
 
       {/* Add Lead Slide-over Modal Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
           {/* Overlay */}
           <div 
             onClick={() => setIsModalOpen(false)}
@@ -260,7 +260,7 @@ export default function Dashboard() {
           />
           
           {/* Modal Panel Container */}
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto z-10 border-l border-slate-100 dark:border-slate-800 transition-colors duration-200">
+          <div className="relative w-full h-[100dvh] md:h-auto md:max-w-lg bg-white dark:bg-slate-900 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto z-10 rounded-none md:rounded-2xl border-l md:border border-slate-100 dark:border-slate-800 transition-colors duration-200">
             <div className="space-y-6">
               {/* Modal Header */}
               <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -270,7 +270,7 @@ export default function Dashboard() {
                 </div>
                 <button 
                   onClick={() => setIsModalOpen(false)} 
-                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition-all cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition-all cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
                   <X size={20} />
                 </button>
@@ -288,7 +288,7 @@ export default function Dashboard() {
                     placeholder="e.g. John Doe"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
                   />
                 </div>
 
@@ -301,54 +301,54 @@ export default function Dashboard() {
                     placeholder="e.g. Acme Corp"
                     value={newCompany}
                     onChange={(e) => setNewCompany(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
                   />
                 </div>
 
                 {/* Email */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email Address *</label>
+                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Email Address *</label>
                   <input
                     type="email"
                     required
                     placeholder="e.g. john@acme.com"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
                   />
                 </div>
 
                 {/* Phone */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phone Number</label>
+                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Phone Number</label>
                   <input
                     type="text"
                     placeholder="e.g. +1 555-0123"
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
                   />
                 </div>
 
                 {/* Estimated Value */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Deal Value ($)</label>
+                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Deal Value ($)</label>
                   <input
                     type="number"
                     placeholder="e.g. 5000"
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
                   />
                 </div>
 
                 {/* Lead Status */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Status</label>
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all cursor-pointer"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px] cursor-pointer"
                   >
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
@@ -366,14 +366,14 @@ export default function Dashboard() {
               <button 
                 type="button" 
                 onClick={() => setIsModalOpen(false)}
-                className="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 font-semibold rounded-xl text-sm active:scale-95 transition-all cursor-pointer"
+                className="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 font-semibold rounded-xl text-sm active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center"
               >
                 Cancel
               </button>
               <button 
                 type="submit" 
                 form="dashboard-add-lead-form"
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-blue-200 dark:shadow-none active:scale-95 transition-all cursor-pointer"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-blue-200 dark:shadow-none active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center"
               >
                 Create Lead
               </button>

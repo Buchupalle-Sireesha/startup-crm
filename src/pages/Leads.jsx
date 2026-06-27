@@ -168,13 +168,13 @@ export default function Leads() {
             </div>
           </div>
 
-          {/* Toggle View mode controllers */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 hidden sm:inline">View:</span>
+          {/* Toggle View mode controllers - only shown on Tablet */}
+          <div className="hidden md:flex lg:hidden items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 hidden md:inline">View:</span>
             <div className="flex bg-slate-50 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-100 dark:border-slate-800">
               <button 
                 onClick={() => setViewMode('table')} 
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'} min-h-[44px] min-w-[44px] flex items-center justify-center`}
                 title="Table List View"
                 aria-label="Toggle to Table View"
               >
@@ -182,7 +182,7 @@ export default function Leads() {
               </button>
               <button 
                 onClick={() => setViewMode('card')} 
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'card' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'card' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'} min-h-[44px] min-w-[44px] flex items-center justify-center`}
                 title="Card Grid View"
                 aria-label="Toggle to Card View"
               >
@@ -201,71 +201,80 @@ export default function Leads() {
       />
 
       {/* Main Content Listings */}
-      {viewMode === 'table' ? (
-        <>
-          {/* Desktop Table View (Hidden on mobile) */}
-          <div className="hidden md:block">
-            {filteredLeads.length > 0 ? (
-              <LeadTable 
-                leads={filteredLeads}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteLead}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                onSort={handleSort}
-              />
-            ) : (
-              <EmptyState 
-                totalLeadsCount={leads.length}
-                onClearFilters={handleClearFilters}
-              />
-            )}
-          </div>
-          {/* Mobile Stacking Cards View (Forces grid when table is selected on mobile screens) */}
-          <div className="md:hidden grid grid-cols-1 gap-4">
-            {filteredLeads.length > 0 ? (
-              filteredLeads.map((lead) => (
+      
+      {/* Mobile viewport: Card view only (Table hidden) */}
+      <div className="block md:hidden space-y-4">
+        {filteredLeads.length > 0 ? (
+          filteredLeads.map((lead) => (
+            <LeadCard 
+              key={lead.id}
+              lead={lead}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteLead}
+            />
+          ))
+        ) : (
+          <EmptyState 
+            totalLeadsCount={leads.length}
+            onClearFilters={handleClearFilters}
+          />
+        )}
+      </div>
+
+      {/* Tablet viewport: Hybrid (allows toggle between table and cards) */}
+      <div className="hidden md:block lg:hidden">
+        {filteredLeads.length > 0 ? (
+          viewMode === 'table' ? (
+            <LeadTable 
+              leads={filteredLeads}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteLead}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {filteredLeads.map((lead) => (
                 <LeadCard 
                   key={lead.id}
                   lead={lead}
                   onEdit={handleEditClick}
                   onDelete={handleDeleteLead}
                 />
-              ))
-            ) : (
-              <EmptyState 
-                totalLeadsCount={leads.length}
-                onClearFilters={handleClearFilters}
-              />
-            )}
-          </div>
-        </>
-      ) : (
-        /* Full Grid of Cards View (Responsive structure for both desktop and mobile) */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLeads.length > 0 ? (
-            filteredLeads.map((lead) => (
-              <LeadCard 
-                key={lead.id}
-                lead={lead}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteLead}
-              />
-            ))
-          ) : (
-            <div className="col-span-full">
-              <EmptyState 
-                totalLeadsCount={leads.length}
-                onClearFilters={handleClearFilters}
-              />
+              ))}
             </div>
-          )}
-        </div>
-      )}
+          )
+        ) : (
+          <EmptyState 
+            totalLeadsCount={leads.length}
+            onClearFilters={handleClearFilters}
+          />
+        )}
+      </div>
 
-      {/* Slide-over Modal Drawer for Lead Form */}
+      {/* Desktop viewport: Full table view with all columns visible */}
+      <div className="hidden lg:block">
+        {filteredLeads.length > 0 ? (
+          <LeadTable 
+            leads={filteredLeads}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteLead}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        ) : (
+          <EmptyState 
+            totalLeadsCount={leads.length}
+            onClearFilters={handleClearFilters}
+          />
+        )}
+      </div>
+
+      {/* Lead Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4" role="dialog" aria-modal="true">
           {/* Backdrop Overlay with Blur */}
           <div 
             onClick={() => setIsModalOpen(false)}
@@ -273,7 +282,7 @@ export default function Leads() {
           />
           
           {/* Drawer Slide-in Panel */}
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto animate-slide-in">
+          <div className="relative w-full h-[100dvh] md:h-auto md:max-w-lg bg-white dark:bg-slate-900 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto z-10 rounded-none md:rounded-2xl border-l md:border border-slate-100 dark:border-slate-800 transition-colors duration-200">
             <div className="space-y-6">
               {/* Drawer Modal Header */}
               <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -285,7 +294,7 @@ export default function Leads() {
                 </div>
                 <button 
                   onClick={() => setIsModalOpen(false)} 
-                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition-all cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition-all cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                   aria-label="Close Form Drawer"
                 >
                   <X size={20} />

@@ -149,16 +149,17 @@ export default function Layout() {
                 to={item.path}
                 className={({ isActive }) => `
                   flex flex-col items-center justify-center gap-1 w-16 h-12 rounded-xl transition-all duration-200 cursor-pointer min-h-[44px] min-w-[44px]
-                  ${isActive ? 'text-blue-650 dark:text-blue-400' : 'text-slate-500 dark:text-slate-450 hover:text-slate-800'}
+                  ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'}
                 `}
               >
-                <Icon size={20} className="stroke-[2]" />
+                <icon size={18}/>
                 <span className="text-[9px] font-bold tracking-tight">{item.name}</span>
               </NavLink>
-            );
-        </div>
+        );
+      })}
       </div>
-    </div>
+      </div>
+      </div>
   );
 }
 
