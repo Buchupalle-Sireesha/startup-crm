@@ -1,14 +1,17 @@
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
-import AppRoutes from './routes';
+import AppRoutes from './routes/index.jsx';
 import { Toaster } from 'react-hot-toast';
 
+/**
+ * Main App component.
+ * Mounts the router layout and global toast alert portal.
+ */
 function App() {
   return (
-    <BrowserRouter>
+    <>
       <AppRoutes />
       <Toaster position="top-right" reverseOrder={false} />
-    </BrowserRouter>
+    </>
   );
 }
 

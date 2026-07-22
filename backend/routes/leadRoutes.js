@@ -1,0 +1,123 @@
+import express from 'express';
+import { body } from 'express-validator';
+import { protect } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import {
+  getLeads,
+  createLead,
+  getLeadById,
+  updateLead,
+  updateLeadStatus,
+  deleteLead,
+  getLeadStats,
+  getMonthlyStats,
+  searchLeads
+} from '../controllers/leadController.js';
+
+const router = express.Router();
+
+// Apply protect middleware to ALL routes in this file
+router.use(protect);
+
+// Define enum values exactly matching specifications
+const validStatuses = ['New', 'Contacted', 'Meeting Scheduled', 'Proposal Sent', 'Won', 'Lost'];
+const validSources = ['Website', 'Referral', 'LinkedIn', 'Cold Call', 'Email Campaign', 'Other'];
+
+// Validation schema for creating a new lead
+const createLeadValidation = [
+  body('name')
+    .trim()
+    .notEmpty()
+    .withMessage('Name is required')
+    .isLength({ min: 2 })
+    .withMessage('Name must be at least 2 characters long'),
+  body('company')
+    .trim()
+    .notEmpty()
+    .withMessage('Company is required'),
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Email must be a valid email address')
+    .normalizeEmail(),
+  body('status')
+    .optional()
+    .isIn(validStatuses)
+    .withMessage(`Status must be one of: ${validStatuses.join(', ')}`),
+  body('source')
+    .optional()
+    .isIn(validSources)
+    .withMessage(`Source must be one of: ${validSources.join(', ')}`)
+];
+
+// Validation schema for updating a lead
+const updateLeadValidation = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2 })
+    .withMessage('Name must be at least 2 characters long'),
+  body('company')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Company cannot be empty'),
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .withMessage('Email must be a valid email address')
+    .normalizeEmail(),
+  body('status')
+    .optional()
+    .isIn(validStatuses)
+    .withMessage(`Status must be one of: ${validStatuses.join(', ')}`),
+  body('source')
+    .optional()
+    .isIn(validSources)
+    .withMessage(`Source must be one of: ${validSources.join(', ')}`)
+];
+
+// Validation schema for patch updating status
+const updateStatusValidation = [
+  body('status')
+    .notEmpty()
+    .withMessage('Status is required')
+    .isIn(validStatuses)
+    .withMessage(`Status must be one of: ${validStatuses.join(', ')}`)
+];
+
+/*
+ * Note: To prevent Express route parameter matching conflicts (where 'stats', 'monthly-stats' or 'search'
+ * could be treated as a lead ':id'), static paths are registered BEFORE parameterized paths.
+ */
+
+// 0. Endpoint: GET /api/leads/search -> Quick search/autocomplete matching
+router.get('/search', searchLeads);
+
+// 1. Endpoint: GET /api/leads/stats -> Retrieve grouped stats counts
+router.get('/stats', getLeadStats);
+
+// 2. Endpoint: GET /api/leads/monthly-stats -> Retrieve 6-month timeline data
+router.get('/monthly-stats', getMonthlyStats);
+
+// 3. Endpoint: GET /api/leads -> Retrieve paginated leads list
+// 4. Endpoint: POST /api/leads -> Create a new lead (with input checks)
+router.route('/')
+  .get(getLeads)
+  .post(validate(createLeadValidation), createLead);
+
+// 5. Endpoint: GET /api/leads/:id -> Fetch one lead details
+// 6. Endpoint: PUT /api/leads/:id -> Update lead fields (with input checks)
+// 8. Endpoint: DELETE /api/leads/:id -> Remove lead from database
+router.route('/:id')
+  .get(getLeadById)
+  .put(validate(updateLeadValidation), updateLead)
+  .delete(deleteLead);
+
+// 7. Endpoint: PATCH /api/leads/:id/status -> Quick pipeline stage patch (with check)
+router.patch('/:id/status', validate(updateStatusValidation), updateLeadStatus);
+
+export default router;
