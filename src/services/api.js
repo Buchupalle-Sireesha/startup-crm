@@ -6,7 +6,10 @@ import { toast } from 'react-hot-toast';
  * Automatically loads the backend base URL from environment variables.
  */
 const getBaseURL = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:5001';
+  if (import.meta.env.DEV) {
+    return import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  }
+  return import.meta.env.VITE_API_URL || '';
 };
 
 const api = axios.create({
