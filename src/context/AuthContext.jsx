@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService.js';
 import { toast } from 'react-hot-toast';
+import { getErrorMessage } from '../services/api.js';
 
 export const AuthContext = createContext(undefined);
 
@@ -49,7 +50,7 @@ export function AuthProvider({ children }) {
       toast.success(data.message || 'Logged in successfully');
       navigate('/dashboard');
     } catch (error) {
-      const errMsg = error.response?.data?.message || 'Login failed. Please verify credentials.';
+      const errMsg = getErrorMessage(error);
       toast.error(errMsg);
       throw error;
     }
@@ -67,14 +68,7 @@ export function AuthProvider({ children }) {
       toast.success(data.message || 'Account registered successfully');
       navigate('/dashboard');
     } catch (error) {
-      // Map validations if they exist
-      const validationErrors = error.response?.data?.errors;
-      let errMsg = error.response?.data?.message || 'Registration failed.';
-      
-      if (Array.isArray(validationErrors) && validationErrors.length > 0) {
-        errMsg = validationErrors[0].message;
-      }
-      
+      const errMsg = getErrorMessage(error);
       toast.error(errMsg);
       throw error;
     }

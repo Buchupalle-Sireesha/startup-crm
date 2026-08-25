@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { errorResponse } from '../utils/apiResponse.js';
 
 /**
@@ -10,6 +11,16 @@ const errorHandler = (err, req, res, next) => {
   let errors = null;
 
   console.error('Error Details:', err);
+
+  // Check if database is offline or unreachable
+  if (
+    err.name === 'MongooseServerSelectionError' ||
+    err.name === 'MongoNetworkError' ||
+    mongoose.connection.readyState !== 1
+  ) {
+    statusCode = 500;
+    message = 'Database connection failure. Database is offline or unreachable.';
+  }
 
   // 1. Mongoose Validation Error (Status 400)
   if (err.name === 'ValidationError') {
@@ -52,7 +63,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Prepare response payload details
-  const payloadMessage = statusCode === 500 ? 'Server error' : message;
+  const payloadMessage = (statusCode === 500 && message !== 'Database connection failure. Database is offline or unreachable.') ? 'Server error' : message;
 
   // Formulate consistent response using our apiResponse helper
   return res.status(statusCode).json({

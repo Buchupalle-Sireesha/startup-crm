@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import leadService from '../services/leadService.js';
 import { useAuth } from './AuthContext.jsx';
 import { toast } from 'react-hot-toast';
+import { getErrorMessage } from '../services/api.js';
 
 export const LeadContext = createContext(undefined);
 
@@ -30,7 +31,7 @@ export function LeadProvider({ children }) {
       }
     } catch (error) {
       console.error('Failed to fetch leads:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch leads from server');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +58,7 @@ export function LeadProvider({ children }) {
       toast.success('Successfully added lead!');
       return response.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add lead');
+      toast.error(getErrorMessage(error));
       throw error;
     } finally {
       setIsLoading(false);
@@ -77,7 +78,7 @@ export function LeadProvider({ children }) {
       toast.success('Updated lead details successfully!');
       return response.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update lead');
+      toast.error(getErrorMessage(error));
       throw error;
     } finally {
       setIsLoading(false);
@@ -94,7 +95,7 @@ export function LeadProvider({ children }) {
       setLeads((prev) => prev.filter((lead) => lead.id !== id && lead._id !== id));
       toast.success('Lead removed successfully');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete lead');
+      toast.error(getErrorMessage(error));
       throw error;
     } finally {
       setIsLoading(false);

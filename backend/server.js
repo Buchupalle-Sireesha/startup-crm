@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { rateLimit } from 'express-rate-limit';
 import mongoose from 'mongoose';
-import connectDB from './config/database.js';
+import connectDB, { disconnectDB } from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import leadRoutes from './routes/leadRoutes.js';
@@ -18,7 +18,9 @@ dotenv.config();
  * Logs missing variables and shuts down the server with status code 1.
  */
 const checkRequiredEnvVars = () => {
-  const required = ['MONGODB_URI', 'JWT_SECRET', 'PORT'];
+  const required = process.env.VERCEL
+    ? ['MONGODB_URI', 'JWT_SECRET']
+    : ['MONGODB_URI', 'JWT_SECRET', 'PORT'];
   const missing = [];
 
   required.forEach((variable) => {
@@ -50,12 +52,23 @@ const loggingFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev'
 app.use(morgan(loggingFormat));
 
 // Configure Cross-Origin Resource Sharing (CORS)
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176'];
+const allowedOrigins = [
+  'https://startup-mrm7xazcb-buchupalle-sireeshas-projects.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
+  'http://localhost:5177'
+];
 
-// Push production domain to allowed list
-allowedOrigins.push('https://your-app.vercel.app');
+if (process.env.FRONTEND_URL) {
+  const envOrigins = process.env.FRONTEND_URL.split(',').map(url => url.trim());
+  envOrigins.forEach(origin => {
+    if (origin && !allowedOrigins.includes(origin)) {
+      allowedOrigins.push(origin);
+    }
+  });
+}
 
 app.use(
   cors({
@@ -63,13 +76,20 @@ app.use(
       // Allow requests with no origin (like mobile apps, postman, curl)
       if (!origin) return callback(null, true);
       
-      if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      const isAllowed = allowedOrigins.includes(origin) ||
+                        origin.startsWith('http://localhost:') ||
+                        origin.startsWith('http://127.0.0.1:') ||
+                        origin.endsWith('.vercel.app');
+      
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
+        // Return false to deny the origin cleanly without throwing an Express error
+        callback(null, false);
       }
     },
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200
   })
 );
 
@@ -139,10 +159,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', leadRoutes);
 
+// Root API status endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Startup CRM Lite Backend API is running successfully',
+    version: '1.0.0'
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
   res.status(200).json({
-    status: 'OK',
+    status: dbStatus === 'CONNECTED' ? 'OK' : 'DEGRADED',
+    database: dbStatus,
     timestamp: new Date()
   });
 });
@@ -154,9 +185,12 @@ const PORT = process.env.PORT || 5000;
 const MODE = process.env.NODE_ENV || 'development';
 
 // Start listening for incoming connections
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${MODE} mode`);
-});
+let server;
+if (!process.env.VERCEL) {
+  server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} in ${MODE} mode`);
+  });
+}
 
 /**
  * Handles graceful server shutdown.
@@ -167,10 +201,9 @@ const server = app.listen(PORT, () => {
 const gracefulShutdown = async (signal) => {
   console.log(`\n[SHUTDOWN] Received ${signal}. Starting graceful shutdown...`);
   
-  server.close(async () => {
-    console.log('[SHUTDOWN] Express HTTP server closed.');
+  const closeMongoose = async () => {
     try {
-      await mongoose.connection.close();
+      await disconnectDB();
       console.log('[SHUTDOWN] MongoDB connection closed cleanly.');
       console.log('Server shutting down gracefully');
       process.exit(0);
@@ -178,7 +211,16 @@ const gracefulShutdown = async (signal) => {
       console.error('[SHUTDOWN] Error closing MongoDB connection:', err.message);
       process.exit(1);
     }
-  });
+  };
+
+  if (server) {
+    server.close(async () => {
+      console.log('[SHUTDOWN] Express HTTP server closed.');
+      await closeMongoose();
+    });
+  } else {
+    await closeMongoose();
+  }
 
   // Force shutdown backup timer after 10s if sockets hang
   setTimeout(() => {
@@ -202,3 +244,5 @@ process.on('uncaughtException', (err) => {
   console.error(`Uncaught Exception: ${err.message}`);
   gracefulShutdown('uncaughtException');
 });
+
+export default app;

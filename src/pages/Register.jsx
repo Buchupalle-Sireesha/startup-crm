@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertCircle, Lock, Mail, User, UserPlus } from 'lucide-react';
+import { getErrorMessage } from '../services/api';
 
 /**
  * Register page component.
@@ -39,7 +40,7 @@ export default function Register() {
       setLoading(true);
       await register(name, email, password);
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Try a different email.');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

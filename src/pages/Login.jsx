@@ -1,4 +1,4 @@
-import api from "../services/api";
+import api, { getErrorMessage } from "../services/api";
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -29,7 +29,7 @@ export default function Login() {
       await login(email, password);
     } catch (err) {
       // Errors are caught and handled by toast, but we also show them in-form
-      setError(err.response?.data?.message || 'Invalid email or password credentials');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
