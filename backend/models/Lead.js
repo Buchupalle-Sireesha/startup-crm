@@ -135,7 +135,11 @@ leadSchema.index({ owner: 1, status: 1, source: 1 });
 // Compound index on owner and search terms (name, company, email) for search and autocompletes
 leadSchema.index({ owner: 1, name: 1, company: 1, email: 1 });
 
+import { MockLead } from '../utils/mockDbEngine.js';
+
 // Define Lead model
-const Lead = mongoose.model('Lead', leadSchema);
+const Lead = (process.env.VERCEL || mongoose.connection.readyState !== 1)
+  ? MockLead
+  : mongoose.model('Lead', leadSchema);
 
 export default Lead;

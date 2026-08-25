@@ -110,7 +110,11 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
+import { UserModel } from '../utils/mockDbEngine.js';
+
 // Define User model
-const User = mongoose.model('User', userSchema);
+const User = (process.env.VERCEL || mongoose.connection.readyState !== 1)
+  ? UserModel
+  : mongoose.model('User', userSchema);
 
 export default User;
