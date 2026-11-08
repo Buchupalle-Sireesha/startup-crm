@@ -79,6 +79,7 @@ app.use((req, res, next) => {
 
 // Configure Cross-Origin Resource Sharing (CORS)
 const allowedOrigins = [
+  'https://startup-mrm7xazcb-buchupalle-sireeshas-projects.vercel.app',
   'https://startup-crm-beta.vercel.app',
   'https://startup-crm-lite.vercel.app',
   'http://localhost:5173',

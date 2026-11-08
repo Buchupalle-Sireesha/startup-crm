@@ -36,15 +36,15 @@ const runTests = async () => {
     await connectDB();
     assert(mongoose.connection.readyState === 1, 'MongoDB connection readyState is 1 (Connected)');
 
-    // Start a dedicated test server on an ephemeral port
+    // Ephemeral port for test server
     const testPort = 5999;
     server = app.listen(testPort);
     baseUrl = `http://localhost:${testPort}`;
     console.log(`[STEP 2] Test Express server listening on ${baseUrl}`);
 
     // Helper for JSON requests
-    const request = async (method, path, body = null, token = null) => {
-      const headers = { 'Content-Type': 'application/json' };
+    const request = async (method, path, body = null, token = null, customHeaders = {}) => {
+      const headers = { 'Content-Type': 'application/json', ...customHeaders };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(`${baseUrl}${path}`, {
@@ -54,10 +54,10 @@ const runTests = async () => {
       });
 
       const data = await res.json().catch(() => null);
-      return { status: res.status, data };
+      return { status: res.status, data, headers: res.headers };
     };
 
-    // 2. Health Endpoint
+    // 2. Health & Root Endpoints
     console.log('\n[STEP 3] Testing Health and Root Endpoints...');
     const rootRes = await request('GET', '/');
     assert(rootRes.status === 200 && rootRes.data.success === true, 'Root GET / returns status 200');
@@ -66,8 +66,23 @@ const runTests = async () => {
     assert(healthRes.status === 200 && healthRes.data.status === 'OK', 'GET /api/health returns status 200 and OK');
     assert(healthRes.data.database === 'CONNECTED', 'GET /api/health reports database CONNECTED');
 
-    // 3. User Registration
-    console.log('\n[STEP 4] Testing User Registration...');
+    // 3. CORS Preflight & Production Origins
+    console.log('\n[STEP 4] Testing Production CORS Headers & Preflight...');
+    const vercelOrigin = 'https://startup-mrm7xazcb-buchupalle-sireeshas-projects.vercel.app';
+    const corsRes = await fetch(`${baseUrl}/api/leads`, {
+      method: 'OPTIONS',
+      headers: {
+        'Origin': vercelOrigin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'Content-Type,Authorization'
+      }
+    });
+    assert(corsRes.status === 200 || corsRes.status === 204, 'Preflight OPTIONS returns 200/204');
+    assert(corsRes.headers.get('access-control-allow-origin') === vercelOrigin, 'CORS correctly allows deployed Vercel frontend origin');
+    assert(corsRes.headers.get('access-control-allow-credentials') === 'true', 'CORS allows credentials');
+
+    // 4. User Registration
+    console.log('\n[STEP 5] Testing User Registration...');
     const testUser = {
       name: 'Test Administrator',
       email: 'admin@startupcrm.com',
@@ -84,14 +99,20 @@ const runTests = async () => {
     const authToken = regRes.data.token;
     const userId = regRes.data.user._id || regRes.data.user.id;
 
-    // 4. Duplicate Registration
-    console.log('\n[STEP 5] Testing Duplicate Registration Prevention...');
+    // 5. Database Persistence Verification (direct Mongoose model verification)
+    console.log('\n[STEP 6] Testing Database Persistence...');
+    const dbUser = await User.findById(userId).select('+password');
+    assert(Boolean(dbUser), 'User was persistently saved in MongoDB');
+    assert(dbUser.password !== testUser.password, 'Password in MongoDB is bcrypt hashed, never plaintext');
+
+    // 6. Duplicate Registration Prevention
+    console.log('\n[STEP 7] Testing Duplicate Registration Prevention...');
     const dupRes = await request('POST', '/api/auth/register', testUser);
     assert(dupRes.status === 400 || dupRes.status === 409, 'Duplicate registration returns 400/409');
     assert(dupRes.data.success === false, 'Duplicate registration returns success: false');
 
-    // 5. User Login
-    console.log('\n[STEP 6] Testing User Login...');
+    // 7. User Login
+    console.log('\n[STEP 8] Testing User Login...');
     const loginRes = await request('POST', '/api/auth/login', {
       email: testUser.email,
       password: testUser.password
@@ -100,8 +121,8 @@ const runTests = async () => {
     assert(Boolean(loginRes.data.token), 'Login returns a valid JWT token');
     assert(loginRes.data.user.password === undefined, 'Security: Password hash is NOT returned in login response');
 
-    // 6. Invalid Login Tests
-    console.log('\n[STEP 7] Testing Invalid Login Rejection...');
+    // 8. Invalid Login Tests
+    console.log('\n[STEP 9] Testing Invalid Login Rejection...');
     const badPassRes = await request('POST', '/api/auth/login', {
       email: testUser.email,
       password: 'WrongPassword999!'
@@ -114,8 +135,8 @@ const runTests = async () => {
     });
     assert(badEmailRes.status === 401, 'Login with nonexistent email returns 401 Unauthorized');
 
-    // 7. Profile Retrieval
-    console.log('\n[STEP 8] Testing Profile Retrieval...');
+    // 9. Profile Retrieval
+    console.log('\n[STEP 10] Testing Profile Retrieval...');
     const profileRes = await request('GET', '/api/auth/profile', null, authToken);
     assert(profileRes.status === 200, 'GET /api/auth/profile returns 200 OK with valid token');
     assert(profileRes.data.user.email === testUser.email.toLowerCase(), 'Profile matches authenticated user email');
@@ -124,8 +145,8 @@ const runTests = async () => {
     const unauthProfileRes = await request('GET', '/api/auth/profile');
     assert(unauthProfileRes.status === 401, 'GET /api/auth/profile without token returns 401 Unauthorized');
 
-    // 8. Lead Creation
-    console.log('\n[STEP 9] Testing Lead Creation...');
+    // 10. Lead Creation
+    console.log('\n[STEP 11] Testing Lead Creation...');
     const newLead = {
       name: 'Alice Cooper',
       company: 'Wonderland Technologies',
@@ -146,7 +167,7 @@ const runTests = async () => {
 
     const leadId = createLeadRes.data.data._id || createLeadRes.data.data.id;
 
-    // Create a second lead to test filtering and stats
+    // Create a second lead for stats aggregation
     const lead2 = await request('POST', '/api/leads', {
       name: 'Bob Marley',
       company: 'Reggae Records',
@@ -159,8 +180,8 @@ const runTests = async () => {
     }, authToken);
     assert(lead2.status === 201, 'Created second lead for stats aggregation');
 
-    // 9. Lead Retrieval and Filtering
-    console.log('\n[STEP 10] Testing Lead Retrieval and Query Filtering...');
+    // 11. Lead Retrieval and Filtering
+    console.log('\n[STEP 12] Testing Lead Retrieval and Query Filtering...');
     const getLeadsRes = await request('GET', '/api/leads', null, authToken);
     assert(getLeadsRes.status === 200, 'GET /api/leads returns 200 OK');
     assert(Array.isArray(getLeadsRes.data.data), 'GET /api/leads returns an array of leads');
@@ -172,16 +193,40 @@ const runTests = async () => {
     const searchRes = await request('GET', '/api/leads/search?q=Alice', null, authToken);
     assert(searchRes.status === 200 && searchRes.data.data.length === 1, 'GET /api/leads/search?q=Alice finds matching lead');
 
-    // 10. Lead Stats
-    console.log('\n[STEP 11] Testing Lead Stats and Valuation Metrics...');
+    // 12. Lead Stats & Analytics
+    console.log('\n[STEP 13] Testing Lead Stats and Valuation Metrics...');
     const statsRes = await request('GET', '/api/leads/stats', null, authToken);
     assert(statsRes.status === 200, 'GET /api/leads/stats returns 200 OK');
     assert(statsRes.data.data.totalLeads === 2, 'Stats totalLeads is 2');
     assert(statsRes.data.data.totalValue === 40000, 'Stats totalValue is correctly aggregated ($40,000)');
     assert(statsRes.data.data.statusBreakdown.Won === 1, 'Stats statusBreakdown correctly reports 1 Won deal');
 
-    // 11. Lead Update
-    console.log('\n[STEP 12] Testing Lead Updating...');
+    const monthlyRes = await request('GET', '/api/leads/monthly-stats', null, authToken);
+    assert(monthlyRes.status === 200, 'GET /api/leads/monthly-stats returns 200 OK');
+    assert(Array.isArray(monthlyRes.data.data) && monthlyRes.data.data.length === 6, 'Monthly analytics returns 6-month array');
+
+    // 13. User Data Isolation / Authorization Boundary Test
+    console.log('\n[STEP 14] Testing User-Specific Data Protection & Tenant Isolation...');
+    const user2Res = await request('POST', '/api/auth/register', {
+      name: 'Second Tenant',
+      email: 'tenant2@startupcrm.com',
+      password: 'Password123!'
+    });
+    const tokenUser2 = user2Res.data.token;
+
+    // Tenant 2 shouldn't see Tenant 1's leads
+    const tenant2Leads = await request('GET', '/api/leads', null, tokenUser2);
+    assert(tenant2Leads.status === 200 && tenant2Leads.data.data.length === 0, 'Tenant isolation: Tenant 2 cannot see Tenant 1 leads');
+
+    // Tenant 2 cannot access or modify Tenant 1's lead
+    const tenant2AccessLead1 = await request('GET', `/api/leads/${leadId}`, null, tokenUser2);
+    assert(tenant2AccessLead1.status === 404, 'Tenant isolation: Tenant 2 cannot view Tenant 1 lead by ID (returns 404)');
+
+    const tenant2EditLead1 = await request('PUT', `/api/leads/${leadId}`, { company: 'Hacked Corp' }, tokenUser2);
+    assert(tenant2EditLead1.status === 404, 'Tenant isolation: Tenant 2 cannot update Tenant 1 lead (returns 404)');
+
+    // 14. Lead Update
+    console.log('\n[STEP 15] Testing Lead Updating...');
     const updateRes = await request('PUT', `/api/leads/${leadId}`, {
       company: 'Wonderland Global Inc',
       value: 18000,
@@ -192,23 +237,23 @@ const runTests = async () => {
     assert(updateRes.data.data.value === 18000, 'Lead value updated to 18000');
     assert(updateRes.data.data.status === 'Proposal Sent', 'Lead status updated to Proposal Sent');
 
-    // 12. Lead Status Patch
-    console.log('\n[STEP 13] Testing Quick Status Patch...');
+    // 15. Lead Status Patch
+    console.log('\n[STEP 16] Testing Quick Status Patch...');
     const patchRes = await request('PATCH', `/api/leads/${leadId}/status`, {
       status: 'Won'
     }, authToken);
     assert(patchRes.status === 200, 'PATCH /api/leads/:id/status returns 200 OK');
     assert(patchRes.data.data.status === 'Won', 'Status patched to Won');
 
-    // 13. Lead Deletion
-    console.log('\n[STEP 14] Testing Lead Deletion...');
+    // 16. Lead Deletion
+    console.log('\n[STEP 17] Testing Lead Deletion...');
     const delRes = await request('DELETE', `/api/leads/${leadId}`, null, authToken);
     assert(delRes.status === 200, 'DELETE /api/leads/:id returns 200 OK');
 
     const getDeletedRes = await request('GET', `/api/leads/${leadId}`, null, authToken);
     assert(getDeletedRes.status === 404, 'GET /api/leads/:id after deletion returns 404 Not Found');
 
-    // 14. Summary
+    // Summary
     console.log('\n======================================================');
     console.log(`TEST SUITE RESULTS: ${passed} PASSED, ${failed} FAILED`);
     console.log('======================================================\n');
