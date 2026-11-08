@@ -1,24 +1,34 @@
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
 
 /**
  * Configure standard Axios client instance.
- * Automatically loads the backend base URL from environment variables.
+ * Automatically resolves the backend base URL:
+ * - If VITE_API_URL is configured, use it.
+ * - In local development mode (DEV), defaults to local backend 'http://localhost:5000'.
+ * - In production mode, defaults to deployed Render backend 'https://startup-crm-backend-1k2o.onrender.com'.
  */
-const getBaseURL = () => {
-  if (import.meta.env.DEV) {
-    return import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
   }
-  return import.meta.env.VITE_API_URL || '';
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5000';
+  }
+  return 'https://startup-crm-backend-1k2o.onrender.com';
 };
 
 const api = axios.create({
-  baseURL: getBaseURL()
+  baseURL: getBaseURL(),
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 15000
 });
 
 /**
  * Parses Axios error objects to return user-friendly, descriptive messages.
- * Maps exact cases: invalid credentials, access denied, invalid endpoint, database failure, CORS, network offline, etc.
+ * Maps exact cases: invalid credentials, access denied, invalid endpoint, duplicate records,
+ * database failure, CORS, network offline, or timeout.
  * 
  * @param {Object} error - The caught Axios error.
  * @returns {string} User-facing error message.
@@ -35,19 +45,21 @@ export const getErrorMessage = (error) => {
       return data?.message || 'Invalid email or password.';
     }
     if (status === 403) {
-      return data?.message || 'Access denied. You do not have permission.';
+      return data?.message || 'Access denied. Account is deactivated or unauthorized.';
     }
     if (status === 404) {
       return data?.message || 'Invalid API endpoint. The requested resource was not found.';
+    }
+    if (status === 409) {
+      return data?.message || 'A record with these details already exists.';
     }
     if (status === 400) {
       if (Array.isArray(data?.errors) && data.errors.length > 0) {
         return data.errors.map(err => err.msg || err.message).join(', ');
       }
-      return data?.message || 'Invalid request or data format.';
+      return data?.message || 'Invalid request format or missing data.';
     }
     if (status === 500) {
-      // Check if it is database connection failure
       const errorMsg = data?.message?.toLowerCase() || '';
       if (errorMsg.includes('database') || errorMsg.includes('mongo') || errorMsg.includes('connection')) {
         return 'Database connection failure. Please contact administrator.';
@@ -59,10 +71,10 @@ export const getErrorMessage = (error) => {
 
   // Check if request was made but no response was received (Network / CORS / Server offline)
   if (error.request) {
-    if (error.message === 'Network Error') {
-      return 'Cannot connect to server. Check your connection or CORS configuration.';
+    if (error.code === 'ECONNABORTED') {
+      return 'Request timed out. The server took too long to respond.';
     }
-    return 'No response from server. Check your network or verify the backend is running.';
+    return 'Cannot connect to server. Check your connection or CORS configuration.';
   }
 
   return error.message || 'An unexpected error occurred.';
@@ -82,24 +94,25 @@ api.interceptors.request.use(
   }
 );
 
-// Response Interceptor: Capture session timeouts (401) or network failures
+// Response Interceptor: Handle session expiration cleanly without redundant notifications
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    // Check if unauthorized response status is returned (session expired/invalid)
+    // If unauthorized response status is returned on authenticated session
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('crm-token');
-      
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/login' && currentPath !== '/register') {
-        window.location.href = '/login';
+      const isAuthEndpoint =
+        error.config?.url?.includes('/api/auth/login') ||
+        error.config?.url?.includes('/api/auth/register');
+
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('crm-token');
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && currentPath !== '/register') {
+          window.location.href = '/login';
+        }
       }
-    } 
-    // Check if network error (server is offline/unreachable)
-    else if (!error.response) {
-      toast.error('Cannot connect to server. Check your connection.');
     }
     return Promise.reject(error);
   }

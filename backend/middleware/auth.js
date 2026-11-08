@@ -36,6 +36,14 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    // If the account has been deactivated
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is deactivated'
+      });
+    }
+
     // Attach user to the request object
     req.user = user;
     next();
@@ -47,7 +55,7 @@ export const protect = async (req, res, next) => {
         message: 'Token has expired, please login again'
       });
     }
-    
+
     // For any other token validation/signature issues
     return res.status(401).json({
       success: false,

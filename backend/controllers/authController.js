@@ -3,7 +3,7 @@ import User from '../models/User.js';
 
 /**
  * Helper function to generate a signed JWT for a given user ID.
- * Not a route handler.
+ * Uses JWT_SECRET and JWT_EXPIRES_IN from environment variables.
  * 
  * @param {string} userId - The user object ID.
  * @returns {string} Signed JWT.
@@ -22,9 +22,10 @@ export const generateToken = (userId) => {
 export const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // Check if email already exists
-    const emailExists = await User.findOne({ email: email.toLowerCase() });
+    const emailExists = await User.findOne({ email: normalizedEmail });
     if (emailExists) {
       return res.status(400).json({
         success: false,
@@ -32,21 +33,22 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // Create new User document (password is hashed in pre-save middleware)
+    // Create new User document (password is hashed by pre-save hook)
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password
     });
 
-    // Generate JWT token (expires in 7 days for register as per requirement)
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    // Generate JWT token with configured expiration
+    const token = generateToken(user._id);
 
-    // Explicitly delete password from returned user object (backed up by model's toJSON override)
+    // Explicitly delete password from returned user object
     const userResponse = user.toJSON();
 
     return res.status(201).json({
       success: true,
+      message: 'User registered successfully',
       token,
       user: userResponse
     });
@@ -61,40 +63,25 @@ export const register = async (req, res, next) => {
  * @route POST /api/auth/login
  */
 export const login = async (req, res, next) => {
-  /*
-   * PRODUCTION SECURITY NOTE:
-   * To prevent brute-force attacks and DDoS on authentication endpoints, 
-   * 'express-rate-limit' should be mounted as a middleware on this route.
-   * Example configuration:
-   * 
-   * import rateLimit from 'express-rate-limit';
-   * const loginLimiter = rateLimit({
-   *   windowMs: 15 * 60 * 1000, // 15 minutes
-   *   max: 5, // Limit each IP to 5 requests per window
-   *   message: 'Too many login attempts from this IP, please try again after 15 minutes'
-   * });
-   * router.post('/login', loginLimiter, ...);
-   */
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    // Find user by email, selecting password explicitly for validation checks
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    // Find user by email, selecting password explicitly since select: false is on schema
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
-      // Security practice: return identical generic message for email or password mismatches
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid email or password'
       });
     }
 
     // Match password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      // Security practice: return identical generic message
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid email or password'
       });
     }
 
@@ -106,13 +93,13 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Generate JWT using our helper function
+    // Generate JWT using helper function
     const token = generateToken(user._id);
-
     const userResponse = user.toJSON();
 
     return res.status(200).json({
       success: true,
+      message: 'Logged in successfully',
       token,
       user: userResponse
     });
@@ -124,11 +111,10 @@ export const login = async (req, res, next) => {
 /**
  * Returns current authenticated user profile details.
  * 
- * @route GET /api/auth/me (or /api/auth/profile)
+ * @route GET /api/auth/profile or GET /api/auth/me
  */
 export const getProfile = async (req, res, next) => {
   try {
-    // req.user was already attached and selected without password by protect middleware
     return res.status(200).json({
       success: true,
       user: req.user
@@ -156,9 +142,9 @@ export const updateProfile = async (req, res, next) => {
       });
     }
 
-    // If name is specified, update it (ignoring email changes as they require separate flows)
+    // If name is specified, update it
     if (name) {
-      user.name = name;
+      user.name = name.trim();
     }
 
     // If new password is provided, validate current old password first
@@ -184,7 +170,6 @@ export const updateProfile = async (req, res, next) => {
     }
 
     await user.save();
-
     const updatedUserResponse = user.toJSON();
 
     return res.status(200).json({

@@ -6,20 +6,7 @@ import { successResponse, errorResponse, paginatedResponse } from '../utils/apiR
  * 
  * @param {Object} req - Express request object.
  * @param {Object} req.query - Query parameters.
- * @param {number} [req.query.page=1] - Current page number.
- * @param {number} [req.query.limit=20] - Number of records per page.
- * @param {string} [req.query.sortBy='createdAt'] - Schema field to sort by.
- * @param {'asc'|'desc'} [req.query.sortOrder='desc'] - Sorting order direction.
- * @param {string} [req.query.status] - Filter by specific status.
- * @param {string} [req.query.search] - Search text matched against name, company, or email.
- * @param {string} [req.query.source] - Filter by lead origin source.
- * @param {string} [req.query.dateFrom] - Start date bounds for creation date (ISO string).
- * @param {string} [req.query.dateTo] - End date bounds for creation date (ISO string).
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
  * @returns {Promise<Object>} Paginated JSON response with data array and pagination metadata.
- * @sideeffects Reads lead documents from MongoDB.
  */
 export const getLeads = async (req, res, next) => {
   try {
@@ -77,10 +64,6 @@ export const getLeads = async (req, res, next) => {
       [sortBy]: sortOrder === 'desc' ? -1 : 1
     };
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[getLeads] Fetching leads with filter:`, filter);
-    }
-
     // Fetch matching records and total counts concurrently
     const [leads, total] = await Promise.all([
       Lead.find(filter)
@@ -101,29 +84,22 @@ export const getLeads = async (req, res, next) => {
  * 
  * @param {Object} req - Express request object.
  * @param {Object} req.body - Fields for the new lead.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
  * @returns {Promise<Object>} Successful JSON response with the created lead details.
- * @sideeffects Creates a new lead document in MongoDB.
  */
 export const createLead = async (req, res, next) => {
   try {
-    const { name, company, email, phone, status, source, notes } = req.body;
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[createLead] Creating lead for user: ${req.user._id}, name: ${name}`);
-    }
+    const { name, company, email, phone, status, source, notes, value } = req.body;
 
     // Create lead with owner set to current logged-in user
     const lead = new Lead({
-      name,
-      company,
-      email,
-      phone,
-      status,
-      source,
-      notes,
+      name: name?.trim(),
+      company: company?.trim(),
+      email: email?.toLowerCase().trim(),
+      phone: phone?.trim(),
+      value: value ? Number(value) : 0,
+      status: status || 'New',
+      source: source || 'Website',
+      notes: notes?.trim(),
       owner: req.user._id
     });
 
@@ -137,24 +113,11 @@ export const createLead = async (req, res, next) => {
 
 /**
  * Retrieves a single lead details by ID, ensuring owner authorization.
- * 
- * @param {Object} req - Express request object.
- * @param {string} req.params.id - The unique lead Object ID.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Successful JSON response with lead document.
- * @sideeffects Reads a lead document from MongoDB.
  */
 export const getLeadById = async (req, res, next) => {
   try {
     const leadId = req.params.id;
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[getLeadById] Fetching lead: ${leadId} for user: ${req.user._id}`);
-    }
-
-    // Find lead belonging to this user
     const lead = await Lead.findOne({ _id: leadId, owner: req.user._id });
     if (!lead) {
       return errorResponse(res, 'Lead not found', 404);
@@ -168,33 +131,32 @@ export const getLeadById = async (req, res, next) => {
 
 /**
  * Updates an existing lead, verifying owner authorization.
- * 
- * @param {Object} req - Express request object.
- * @param {string} req.params.id - The unique lead Object ID.
- * @param {Object} req.body - Fields to update.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Successful JSON response with the updated lead document.
- * @sideeffects Modifies a lead document in MongoDB.
  */
 export const updateLead = async (req, res, next) => {
   try {
     const leadId = req.params.id;
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[updateLead] Updating lead: ${leadId} for user: ${req.user._id}`);
-    }
-
-    // Force deletion of owner field if provided in body to prevent ownership transfer
+    // Prevent ownership transfer
     const updateData = { ...req.body };
     delete updateData.owner;
 
-    // Find and update lead matching ID and owner
+    if (updateData.email) {
+      updateData.email = updateData.email.toLowerCase().trim();
+    }
+    if (updateData.name) {
+      updateData.name = updateData.name.trim();
+    }
+    if (updateData.company) {
+      updateData.company = updateData.company.trim();
+    }
+    if (updateData.value !== undefined) {
+      updateData.value = Number(updateData.value) || 0;
+    }
+
     const lead = await Lead.findOneAndUpdate(
       { _id: leadId, owner: req.user._id },
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!lead) {
@@ -209,26 +171,12 @@ export const updateLead = async (req, res, next) => {
 
 /**
  * Fast-updates the pipeline status of a single lead.
- * 
- * @param {Object} req - Express request object.
- * @param {string} req.params.id - The unique lead Object ID.
- * @param {string} req.body.status - The new status to set.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Successful JSON response with updated lead.
- * @sideeffects Modifies lead status field in MongoDB.
  */
 export const updateLeadStatus = async (req, res, next) => {
   try {
     const leadId = req.params.id;
     const { status } = req.body;
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[updateLeadStatus] Patching status for lead: ${leadId} to: ${status}`);
-    }
-
-    // Validate enum options explicitly
     const validStatuses = ['New', 'Contacted', 'Meeting Scheduled', 'Proposal Sent', 'Won', 'Lost'];
     if (!validStatuses.includes(status)) {
       return errorResponse(res, 'Invalid status value', 400);
@@ -237,7 +185,7 @@ export const updateLeadStatus = async (req, res, next) => {
     const lead = await Lead.findOneAndUpdate(
       { _id: leadId, owner: req.user._id },
       { status },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!lead) {
@@ -252,24 +200,11 @@ export const updateLeadStatus = async (req, res, next) => {
 
 /**
  * Deletes a lead, verifying owner authorization.
- * 
- * @param {Object} req - Express request object.
- * @param {string} req.params.id - The unique lead Object ID.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Successful JSON response confirming deletion.
- * @sideeffects Deletes a lead document in MongoDB.
  */
 export const deleteLead = async (req, res, next) => {
   try {
     const leadId = req.params.id;
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[deleteLead] Deleting lead: ${leadId} for user: ${req.user._id}`);
-    }
-
-    // Find lead by owner to guarantee security
     const lead = await Lead.findOne({ _id: leadId, owner: req.user._id });
     if (!lead) {
       return errorResponse(res, 'Lead not found', 404);
@@ -284,36 +219,14 @@ export const deleteLead = async (req, res, next) => {
 };
 
 /**
- * Aggregates statistics for all leads owned by the authenticated user.
- * Groups counts by status and calculates total counts, won, lost, and conversion rate.
- * 
- * @param {Object} req - Express request object.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Statistics payload matching frontend metrics specifications.
- * @sideeffects Reads lead analytics from MongoDB.
- */
-/**
  * Aggregates complete lead statistics for the authenticated user in a single database query.
- * Computes totals, status breakdown, conversion rates, source breakdown, monthly leads, and growth rate.
- * 
- * @param {Object} req - Express request object.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Statistics payload matching dashboard KPI cards.
- * @sideeffects Reads lead analytics from MongoDB.
+ * Computes totals, pipeline value, status breakdown, conversion rates, source breakdown, monthly leads, and growth rate.
  */
 export const getLeadStats = async (req, res, next) => {
   try {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[getLeadStats] Compiling lead dashboard stats for user: ${req.user._id}`);
-    }
-
     const now = new Date();
     const thisYear = now.getFullYear();
-    const thisMonth = now.getMonth() + 1; // Mongoose $month returns 1-12
+    const thisMonth = now.getMonth() + 1; // 1-12
     
     let lastMonthNum = thisMonth - 1;
     let lastMonthYear = thisYear;
@@ -328,6 +241,7 @@ export const getLeadStats = async (req, res, next) => {
         $group: {
           _id: null,
           totalLeads: { $sum: 1 },
+          totalValue: { $sum: { $ifNull: ['$value', 0] } },
           // Status counts
           wonLeads: { $sum: { $cond: [{ $eq: ['$status', 'Won'] }, 1, 0] } },
           lostLeads: { $sum: { $cond: [{ $eq: ['$status', 'Lost'] }, 1, 0] } },
@@ -342,7 +256,7 @@ export const getLeadStats = async (req, res, next) => {
           coldCallLeads: { $sum: { $cond: [{ $eq: ['$source', 'Cold Call'] }, 1, 0] } },
           emailCampaignLeads: { $sum: { $cond: [{ $eq: ['$source', 'Email Campaign'] }, 1, 0] } },
           otherLeads: { $sum: { $cond: [{ $eq: ['$source', 'Other'] }, 1, 0] } },
-          // Monthly comparisons (created in current calendar month vs previous month)
+          // Monthly comparisons
           thisMonthLeads: {
             $sum: {
               $cond: [
@@ -378,9 +292,9 @@ export const getLeadStats = async (req, res, next) => {
     let data;
 
     if (stats.length === 0) {
-      // Default structure if user has no leads to prevent UI layout breaks
       data = {
         totalLeads: 0,
+        totalValue: 0,
         statusBreakdown: {
           New: 0,
           Contacted: 0,
@@ -405,6 +319,7 @@ export const getLeadStats = async (req, res, next) => {
     } else {
       const doc = stats[0];
       const totalLeads = doc.totalLeads || 0;
+      const totalValue = doc.totalValue || 0;
       const wonLeads = doc.wonLeads || 0;
       
       const statusBreakdown = {
@@ -425,7 +340,6 @@ export const getLeadStats = async (req, res, next) => {
         Other: doc.otherLeads || 0
       };
 
-      // Conversion rate: Won / Total * 100, rounded to 1 decimal place
       const conversionRate = totalLeads > 0 
         ? parseFloat(((wonLeads / totalLeads) * 100).toFixed(1)) 
         : 0.0;
@@ -433,16 +347,16 @@ export const getLeadStats = async (req, res, next) => {
       const thisMonthLeads = doc.thisMonthLeads || 0;
       const lastMonthLeads = doc.lastMonthLeads || 0;
 
-      // Growth rate: ((thisMonth - lastMonth) / lastMonth) * 100
       let growthRate = 0.0;
       if (lastMonthLeads > 0) {
         growthRate = parseFloat((((thisMonthLeads - lastMonthLeads) / lastMonthLeads) * 100).toFixed(1));
       } else if (thisMonthLeads > 0) {
-        growthRate = 100.0; // 100% growth if there were no leads last month
+        growthRate = 100.0;
       }
 
       data = {
         totalLeads,
+        totalValue,
         statusBreakdown,
         conversionRate,
         sourceBreakdown,
@@ -463,24 +377,11 @@ export const getLeadStats = async (req, res, next) => {
 
 /**
  * Aggregates monthly lead totals, won, lost, and conversion rate metrics for the last 6 months chronologically.
- * Populates zero values for empty months to prevent UI rendering errors.
- * 
- * @param {Object} req - Express request object.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} Chronological array of monthly lead stats.
- * @sideeffects Reads lead analytics from MongoDB.
  */
 export const getMonthlyStats = async (req, res, next) => {
   try {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[getMonthlyStats] Compiling 6-month trends for user: ${req.user._id}`);
-    }
-
-    // Set starting point to 5 months ago (start of that month)
     const sixMonthsAgo = new Date();
-    sixMonthsAgo.setDate(1); // Crucial: avoid month overflow issues (e.g. on 31st of month)
+    sixMonthsAgo.setDate(1);
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
     sixMonthsAgo.setHours(0, 0, 0, 0);
 
@@ -518,14 +419,13 @@ export const getMonthlyStats = async (req, res, next) => {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const result = [];
 
-    // Loop from 5 months ago to current month to construct a clean chronological series
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
-      d.setDate(1); // Set to 1st of month to guarantee safe calculations
+      d.setDate(1);
       d.setMonth(d.getMonth() - i);
       const year = d.getFullYear();
-      const monthNum = d.getMonth() + 1; // 1-indexed (Jan=1)
-      const monthLabel = `${monthNames[d.getMonth()]} ${year}`; // Format: 'Jan 2025'
+      const monthNum = d.getMonth() + 1;
+      const monthLabel = `${monthNames[d.getMonth()]} ${year}`;
 
       const matchedStats = stats.find(
         (s) => s._id.year === year && s._id.month === monthNum
@@ -556,23 +456,11 @@ export const getMonthlyStats = async (req, res, next) => {
 
 /**
  * Fast search/autocomplete endpoint for leads.
- * Filters by owner isolation, performs case-insensitive regex search against name, company, and email,
- * and restricts projected fields and limit (max 5) for high performance.
- * 
- * @route GET /api/leads/search
- * @param {Object} req - Express request object.
- * @param {string} req.query.q - The query search term.
- * @param {number} [req.query.limit=5] - Maximum number of results to return.
- * @param {Object} res - Express response object.
- * @param {Function} next - Express next middleware.
- * 
- * @returns {Promise<Object>} JSON response containing list of matched leads.
- * @sideeffects Reads lead documents from MongoDB.
  */
 export const searchLeads = async (req, res, next) => {
   try {
     const { q, limit = 5 } = req.query;
-    const limitNum = Math.min(parseInt(limit, 10) || 5, 20); // Cap at 20 for safety
+    const limitNum = Math.min(parseInt(limit, 10) || 5, 20);
 
     if (!q) {
       return res.status(200).json({
@@ -591,7 +479,7 @@ export const searchLeads = async (req, res, next) => {
         { email: searchRegex }
       ]
     })
-    .select('_id name company email status')
+    .select('_id name company email status value')
     .limit(limitNum);
 
     return res.status(200).json({

@@ -152,7 +152,7 @@ export default function Layout() {
                   ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'}
                 `}
               >
-                <icon size={18}/>
+                <Icon size={18}/>
                 <span className="text-[9px] font-bold tracking-tight">{item.name}</span>
               </NavLink>
         );

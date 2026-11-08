@@ -56,6 +56,16 @@ export const leadSchema = new mongoose.Schema(
     },
 
     /**
+     * Monetary deal value of the lead in dollars.
+     * Optional field, defaults to 0.
+     */
+    value: {
+      type: Number,
+      default: 0,
+      min: [0, 'Lead value cannot be negative']
+    },
+
+    /**
      * Current status of the lead in the sales pipeline.
      * Must be one of the specified enum values. Defaults to 'New'.
      */
@@ -120,6 +130,14 @@ leadSchema.virtual('age').get(function() {
   return ageInDays < 0 ? 0 : ageInDays;
 });
 
+/**
+ * Virtual field providing a formatted ISO date string for display in tables and cards.
+ */
+leadSchema.virtual('dateAdded').get(function() {
+  if (!this.createdAt) return 'N/A';
+  return this.createdAt.toISOString().split('T')[0];
+});
+
 // Compound index on owner and status for fast filtered queries
 leadSchema.index({ owner: 1, status: 1 });
 
@@ -135,11 +153,7 @@ leadSchema.index({ owner: 1, status: 1, source: 1 });
 // Compound index on owner and search terms (name, company, email) for search and autocompletes
 leadSchema.index({ owner: 1, name: 1, company: 1, email: 1 });
 
-import { MockLead } from '../utils/mockDbEngine.js';
-
-// Define Lead model
-const Lead = (process.env.VERCEL || mongoose.connection.readyState !== 1)
-  ? MockLead
-  : mongoose.model('Lead', leadSchema);
+// Define standard Mongoose Lead model
+const Lead = mongoose.models.Lead || mongoose.model('Lead', leadSchema);
 
 export default Lead;

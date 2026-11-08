@@ -41,11 +41,13 @@ export const userSchema = new mongoose.Schema(
     /**
      * Hashed password of the user.
      * Stored as a bcrypt hash, never plain text. Must be at least 6 characters in plain text.
+     * select: false prevents the password hash from being leaked in queries by default.
      */
     password: {
       type: String,
       required: [true, 'Password is required'],
-      minlength: [6, 'Password must be at least 6 characters long']
+      minlength: [6, 'Password must be at least 6 characters long'],
+      select: false
     },
 
     /**
@@ -85,9 +87,8 @@ userSchema.pre('save', async function() {
     return;
   }
 
- 
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 /**
@@ -110,11 +111,7 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
-import { UserModel } from '../utils/mockDbEngine.js';
-
-// Define User model
-const User = (process.env.VERCEL || mongoose.connection.readyState !== 1)
-  ? UserModel
-  : mongoose.model('User', userSchema);
+// Define standard Mongoose User model
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 export default User;

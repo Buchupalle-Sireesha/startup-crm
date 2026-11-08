@@ -49,34 +49,26 @@ export default function Leads() {
   };
 
   // Handles adding or updating a lead when form is submitted
-  const handleFormSubmit = (formData) => {
-    if (selectedLead) {
-      // Edit Flow
-      updateLead(selectedLead.id, formData);
-      toast.success(`Updated lead details for ${formData.name}`);
-    } else {
-      // Create Flow
-      addLead(formData);
-      toast.success(`Successfully added lead: ${formData.name}`);
+  const handleFormSubmit = async (formData) => {
+    try {
+      if (selectedLead) {
+        // Edit Flow
+        const leadId = selectedLead._id || selectedLead.id;
+        await updateLead(leadId, formData);
+      } else {
+        // Create Flow
+        await addLead(formData);
+      }
+      setIsModalOpen(false);
+      setSelectedLead(null);
+    } catch (err) {
+      // Error handled by LeadContext toast
     }
-
-    setIsModalOpen(false);
-    setSelectedLead(null);
   };
 
   // Handles deleting a lead
   const handleDeleteLead = (id, name) => {
-    // Standard red notifications for deletes as required
     deleteLead(id);
-    toast.error(`Removed lead: ${name}`, {
-      icon: '🗑️',
-      style: {
-        borderRadius: '12px',
-        background: '#FFF1F2',
-        color: '#E11D48',
-        border: '1px solid #FECDD3',
-      },
-    });
   };
 
   // Handles changing sorting criteria

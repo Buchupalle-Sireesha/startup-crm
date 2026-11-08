@@ -83,7 +83,7 @@ export default function Dashboard() {
   ];
 
   // Callback to add a new lead to the local state list
-  const handleCreateLead = (e) => {
+  const handleCreateLead = async (e) => {
     e.preventDefault();
     if (!newName || !newCompany || !newEmail) {
       toast.error('Name, Company, and Email are required!');
@@ -101,17 +101,19 @@ export default function Dashboard() {
       source: 'Other'
     };
 
-    addLead(leadData);
-    toast.success(`Created lead: ${newName}`);
-
-    // Reset Form Fields
-    setNewName('');
-    setNewCompany('');
-    setNewValue('');
-    setNewStatus('New');
-    setNewEmail('');
-    setNewPhone('');
-    setIsModalOpen(false);
+    try {
+      await addLead(leadData);
+      // Reset Form Fields
+      setNewName('');
+      setNewCompany('');
+      setNewValue('');
+      setNewStatus('New');
+      setNewEmail('');
+      setNewPhone('');
+      setIsModalOpen(false);
+    } catch (err) {
+      // Error handled by LeadContext toast
+    }
   };
 
   // Callback to export data as CSV format

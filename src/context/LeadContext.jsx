@@ -25,7 +25,7 @@ export function LeadProvider({ children }) {
     try {
       setIsLoading(true);
       const response = await leadService.getLeads(params);
-      setLeads(response.data);
+      setLeads(response.data || []);
       if (response.pagination) {
         setPagination(response.pagination);
       }
@@ -54,9 +54,10 @@ export function LeadProvider({ children }) {
     try {
       setIsLoading(true);
       const response = await leadService.createLead(leadData);
-      setLeads((prev) => [response.data, ...prev]);
+      const created = response.data;
+      setLeads((prev) => [created, ...prev]);
       toast.success('Successfully added lead!');
-      return response.data;
+      return created;
     } catch (error) {
       toast.error(getErrorMessage(error));
       throw error;
@@ -72,11 +73,12 @@ export function LeadProvider({ children }) {
     try {
       setIsLoading(true);
       const response = await leadService.updateLead(id, updatedData);
+      const updated = response.data;
       setLeads((prev) =>
-        prev.map((lead) => (lead.id === id || lead._id === id ? response.data : lead))
+        prev.map((lead) => (lead._id === id || lead.id === id ? updated : lead))
       );
       toast.success('Updated lead details successfully!');
-      return response.data;
+      return updated;
     } catch (error) {
       toast.error(getErrorMessage(error));
       throw error;
@@ -92,7 +94,7 @@ export function LeadProvider({ children }) {
     try {
       setIsLoading(true);
       await leadService.deleteLead(id);
-      setLeads((prev) => prev.filter((lead) => lead.id !== id && lead._id !== id));
+      setLeads((prev) => prev.filter((lead) => lead._id !== id && lead.id !== id));
       toast.success('Lead removed successfully');
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -106,7 +108,7 @@ export function LeadProvider({ children }) {
    * Looks up a single lead in active state by ID.
    */
   const getLeadById = (id) => {
-    return leads.find((lead) => lead.id === id || lead._id === id);
+    return leads.find((lead) => lead._id === id || lead.id === id);
   };
 
   return (

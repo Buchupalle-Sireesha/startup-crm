@@ -83,7 +83,7 @@ export default function LeadTable({ leads, onEdit, onDelete, sortBy, sortOrder, 
             {leads.length > 0 ? (
               leads.map((lead) => (
                 <tr 
-                  key={lead.id} 
+                  key={lead._id || lead.id} 
                   className="hover:bg-slate-50/40 dark:hover:bg-slate-850/20 transition-colors group"
                 >
                   {/* Lead Name with avatar-like style */}
@@ -142,7 +142,7 @@ export default function LeadTable({ leads, onEdit, onDelete, sortBy, sortOrder, 
                   
                   {/* Date Added */}
                   <td className="hidden lg:table-cell px-6 py-4 text-slate-500 dark:text-slate-400 text-xs font-medium">
-                    {lead.dateAdded || 'N/A'}
+                    {lead.dateAdded || (lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : 'N/A')}
                   </td>
                   
                   {/* Action Buttons */}
@@ -157,7 +157,7 @@ export default function LeadTable({ leads, onEdit, onDelete, sortBy, sortOrder, 
                         <Edit size={15} />
                       </button>
                       <button
-                        onClick={() => onDelete(lead.id, lead.name)}
+                        onClick={() => onDelete(lead._id || lead.id, lead.name)}
                         className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl transition-all duration-150"
                         title="Delete Lead"
                         aria-label={`Delete ${lead.name}`}

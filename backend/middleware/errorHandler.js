@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { errorResponse } from '../utils/apiResponse.js';
 
 /**
  * Global Express error handling middleware.
@@ -10,20 +9,22 @@ const errorHandler = (err, req, res, next) => {
   let message = err.message || 'Server error';
   let errors = null;
 
-  console.error('Error Details:', err);
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('Error Details:', err);
+  }
 
   // Check if database is offline or unreachable
   if (
     err.name === 'MongooseServerSelectionError' ||
     err.name === 'MongoNetworkError' ||
-    mongoose.connection.readyState !== 1
+    (mongoose.connection.readyState !== 1 && err.name?.includes('Mongo'))
   ) {
     statusCode = 500;
     message = 'Database connection failure. Database is offline or unreachable.';
   }
 
   // 1. Mongoose Validation Error (Status 400)
-  if (err.name === 'ValidationError') {
+  else if (err.name === 'ValidationError') {
     statusCode = 400;
     message = 'Validation Error';
     errors = {};
@@ -41,12 +42,13 @@ const errorHandler = (err, req, res, next) => {
   // 3. MongoDB Duplicate Key Error - code 11000 (Status 409)
   else if (err.code === 11000) {
     statusCode = 409;
-    // Extract duplicate field if possible, default to email check
     const duplicateField = err.keyValue ? Object.keys(err.keyValue)[0] : '';
     if (duplicateField === 'email') {
       message = 'Email already exists';
     } else {
-      message = duplicateField ? `${duplicateField.charAt(0).toUpperCase() + duplicateField.slice(1)} already exists` : 'Email already exists';
+      message = duplicateField
+        ? `${duplicateField.charAt(0).toUpperCase() + duplicateField.slice(1)} already exists`
+        : 'Duplicate value already exists';
     }
   }
 
@@ -63,9 +65,10 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Prepare response payload details
-  const payloadMessage = (statusCode === 500 && message !== 'Database connection failure. Database is offline or unreachable.') ? 'Server error' : message;
+  const payloadMessage = (statusCode === 500 && !message.includes('Database connection failure'))
+    ? (process.env.NODE_ENV === 'production' ? 'Internal Server Error. Please try again later.' : err.message)
+    : message;
 
-  // Formulate consistent response using our apiResponse helper
   return res.status(statusCode).json({
     success: false,
     message: payloadMessage,

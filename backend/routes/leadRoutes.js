@@ -19,7 +19,7 @@ const router = express.Router();
 // Apply protect middleware to ALL routes in this file
 router.use(protect);
 
-// Define enum values exactly matching specifications
+// Define enum values matching schema specifications
 const validStatuses = ['New', 'Contacted', 'Meeting Scheduled', 'Proposal Sent', 'Won', 'Lost'];
 const validSources = ['Website', 'Referral', 'LinkedIn', 'Cold Call', 'Email Campaign', 'Other'];
 
@@ -42,6 +42,10 @@ const createLeadValidation = [
     .isEmail()
     .withMessage('Email must be a valid email address')
     .normalizeEmail(),
+  body('value')
+    .optional()
+    .isNumeric()
+    .withMessage('Value must be a numeric amount'),
   body('status')
     .optional()
     .isIn(validStatuses)
@@ -70,6 +74,10 @@ const updateLeadValidation = [
     .isEmail()
     .withMessage('Email must be a valid email address')
     .normalizeEmail(),
+  body('value')
+    .optional()
+    .isNumeric()
+    .withMessage('Value must be a numeric amount'),
   body('status')
     .optional()
     .isIn(validStatuses)
@@ -89,35 +97,20 @@ const updateStatusValidation = [
     .withMessage(`Status must be one of: ${validStatuses.join(', ')}`)
 ];
 
-/*
- * Note: To prevent Express route parameter matching conflicts (where 'stats', 'monthly-stats' or 'search'
- * could be treated as a lead ':id'), static paths are registered BEFORE parameterized paths.
- */
-
-// 0. Endpoint: GET /api/leads/search -> Quick search/autocomplete matching
+// Static paths registered before parameterized paths (:id)
 router.get('/search', searchLeads);
-
-// 1. Endpoint: GET /api/leads/stats -> Retrieve grouped stats counts
 router.get('/stats', getLeadStats);
-
-// 2. Endpoint: GET /api/leads/monthly-stats -> Retrieve 6-month timeline data
 router.get('/monthly-stats', getMonthlyStats);
 
-// 3. Endpoint: GET /api/leads -> Retrieve paginated leads list
-// 4. Endpoint: POST /api/leads -> Create a new lead (with input checks)
 router.route('/')
   .get(getLeads)
   .post(validate(createLeadValidation), createLead);
 
-// 5. Endpoint: GET /api/leads/:id -> Fetch one lead details
-// 6. Endpoint: PUT /api/leads/:id -> Update lead fields (with input checks)
-// 8. Endpoint: DELETE /api/leads/:id -> Remove lead from database
 router.route('/:id')
   .get(getLeadById)
   .put(validate(updateLeadValidation), updateLead)
   .delete(deleteLead);
 
-// 7. Endpoint: PATCH /api/leads/:id/status -> Quick pipeline stage patch (with check)
 router.patch('/:id/status', validate(updateStatusValidation), updateLeadStatus);
 
 export default router;

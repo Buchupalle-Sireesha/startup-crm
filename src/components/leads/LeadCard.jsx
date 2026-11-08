@@ -12,7 +12,9 @@ import StatusBadge from './StatusBadge';
  * @param {Function} props.onDelete - Callback function when delete action is clicked.
  */
 export default function LeadCard({ lead, onEdit, onDelete }) {
-  const { id, name, company, email, phone, status, source, dateAdded } = lead;
+  const { id, _id, name, company, email, phone, status, source, dateAdded, createdAt } = lead;
+  const leadId = _id || id;
+  const formattedDate = dateAdded || (createdAt ? new Date(createdAt).toISOString().split('T')[0] : null);
 
   return (
     <div 
@@ -87,12 +89,12 @@ export default function LeadCard({ lead, onEdit, onDelete }) {
           )}
 
           {/* Date Added */}
-          {dateAdded && (
+          {formattedDate && (
             <div className="flex items-center gap-2.5 text-xs text-slate-400 dark:text-slate-500">
               <span className="p-1 rounded-lg bg-slate-50/50 dark:bg-slate-850/50 text-slate-400/80">
                 <Calendar size={13} />
               </span>
-              <span>Added: {dateAdded}</span>
+              <span>Added: {formattedDate}</span>
             </div>
           )}
         </div>
@@ -109,7 +111,7 @@ export default function LeadCard({ lead, onEdit, onDelete }) {
           <Edit size={16} />
         </button>
         <button
-          onClick={() => onDelete(id, name)}
+          onClick={() => onDelete(leadId, name)}
           className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl transition-all duration-200"
           title="Delete Lead"
           aria-label={`Delete ${name}`}
