@@ -11,11 +11,13 @@ import { Search, X } from 'lucide-react';
  */
 export default function SearchBar({ value, onChange }) {
   const [localValue, setLocalValue] = useState(value);
+  const [prevPropValue, setPrevPropValue] = useState(value);
 
   // Sync local state when the prop value changes externally (e.g. filters are cleared)
-  useEffect(() => {
+  if (value !== prevPropValue) {
+    setPrevPropValue(value);
     setLocalValue(value);
-  }, [value]);
+  }
 
   // Debounce the input updates by 300ms before notifying the parent
   useEffect(() => {

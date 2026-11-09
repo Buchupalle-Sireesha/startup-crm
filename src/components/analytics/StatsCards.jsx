@@ -106,8 +106,8 @@ export default function StatsCards({ kpis }) {
 
         const isZero = trendVal === 0;
 
-        let trendClass = "";
-        let trendText = "";
+        let trendClass;
+        let trendText;
 
         if (isZero) {
           trendClass = "text-slate-400 bg-slate-50 dark:bg-slate-800 dark:text-slate-500";

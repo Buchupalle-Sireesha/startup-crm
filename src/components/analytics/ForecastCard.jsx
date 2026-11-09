@@ -1,9 +1,9 @@
 import React from "react";
-import { TrendingUp, Award, ShieldAlert, Activity } from "lucide-react";
+import { TrendingUp, Award, Activity } from "lucide-react";
 
-const formatRupee = (value) => {
-  if (value === undefined || value === null) return "₹0";
-  return "₹" + Math.round(value).toLocaleString("en-IN");
+const formatCurrency = (value) => {
+  if (value === undefined || value === null) return "$0";
+  return "$" + Math.round(value).toLocaleString();
 };
 
 export default function ForecastCard({ forecastData }) {
@@ -43,7 +43,7 @@ export default function ForecastCard({ forecastData }) {
           Predicted Revenue Next Month
         </span>
         <h4 className="text-3xl font-black text-slate-905 dark:text-slate-50 tracking-tight">
-          {formatRupee(forecast)}
+          {formatCurrency(forecast)}
         </h4>
       </div>
 

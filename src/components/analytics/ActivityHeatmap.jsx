@@ -94,7 +94,7 @@ export default function ActivityHeatmap({ data = [] }) {
                 onMouseLeave={() => setActiveHoverDay(null)}
                 className={`aspect-square rounded-lg transition-all duration-150 cursor-pointer border border-transparent flex items-center justify-center text-[10px] font-bold ${colorClass} ${
                   block.count > 0 ? "text-slate-800 dark:text-white" : "text-slate-300 dark:text-slate-700"
-                }`}
+                } ${isHovered ? "ring-2 ring-blue-500 scale-105 shadow-sm" : ""}`}
               >
                 {block.dayNum}
               </div>

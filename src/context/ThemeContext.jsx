@@ -18,11 +18,14 @@ export const ThemeContext = createContext(undefined);
  * @returns {React.ReactElement} The ThemeProvider element.
  */
 export function ThemeProvider({ children }) {
-  // Read state from localStorage, defaulting to false if not found
+  // Read state from localStorage, defaulting to system preference if not set
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
       const storedTheme = localStorage.getItem('nexus_crm_theme');
-      return storedTheme ? JSON.parse(storedTheme) : false;
+      if (storedTheme !== null) {
+        return storedTheme === 'true' || JSON.parse(storedTheme) === true;
+      }
+      return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch {
       return false;
     }
@@ -38,8 +41,10 @@ export function ThemeProvider({ children }) {
 
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }, [isDarkMode]);
 

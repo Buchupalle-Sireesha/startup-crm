@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
@@ -7,7 +7,8 @@ import {
   TrendingUp, 
   Plus, 
   X, 
-  UserPlus 
+  UserPlus,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
@@ -20,43 +21,28 @@ import {
   CartesianGrid 
 } from 'recharts';
 
-// Import newly created dashboard widgets
+// Import dashboard widgets
 import StatsCard from '../components/dashboard/StatsCard';
 import PipelineOverview from '../components/dashboard/PipelineOverview';
 import RecentLeads from '../components/dashboard/RecentLeads';
 import QuickActions from '../components/dashboard/QuickActions';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useLeads } from '../context/LeadContext';
 import { useTheme } from '../context/ThemeContext';
 
-// Mock performance data for charts (retained from original view)
-const pipelineChartData = [
-  { month: 'Jan', value: 45000, leads: 120 },
-  { month: 'Feb', value: 52000, leads: 145 },
-  { month: 'Mar', value: 49000, leads: 130 },
-  { month: 'Apr', value: 63000, leads: 175 },
-  { month: 'May', value: 58000, leads: 160 },
-  { month: 'Jun', value: 85000, leads: 220 },
-];
-
 /**
  * Dashboard page represents the core landing view for Startup CRM Lite.
- * It coordinates and displays:
- * - StatsCard widgets showing computed dynamic totals, valuation, conversion rates, and wins.
- * - Sales Pipeline chart displaying pipeline growth over time.
- * - PipelineOverview progress distribution chart.
- * - QuickActions panel for fast workflow triggers.
- * - RecentLeads table detailing the latest prospects in the system.
- * - Modal slide-over form to add a new lead directly into dashboard context.
- *
- * @component
- * @returns {React.ReactElement} The Dashboard page component.
+ * Coordinates dynamic totals, pipeline valuations, conversion rates,
+ * live Recharts sales curves, recent prospects, and quick actions.
  */
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { leads, addLead } = useLeads();
   const { isDarkMode } = useTheme();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [timeframe, setTimeframe] = useState('Last 6 Months');
 
   // Form states for adding a lead from the dashboard
   const [newName, setNewName] = useState('');
@@ -66,38 +52,146 @@ export default function Dashboard() {
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
 
-  // Dynamically calculate metrics based on state leads
+  // Dynamically calculate metrics based on authenticated user's actual leads
   const totalLeadsCount = leads.length;
   const pipelineVal = leads.reduce((acc, lead) => acc + (Number(lead.value) || 0), 0);
-  const wonLeads = leads.filter((lead) => lead.status.toLowerCase() === 'won');
+  const wonLeads = leads.filter((lead) => (lead.status || '').toLowerCase() === 'won');
+  const wonVal = wonLeads.reduce((acc, lead) => acc + (Number(lead.value) || 0), 0);
   const conversionRate = totalLeadsCount > 0 
     ? ((wonLeads.length / totalLeadsCount) * 100).toFixed(1) 
     : '0.0';
 
-  // Stats definition matching component inputs
+  // Stats cards definition derived from live database data
   const statsList = [
-    { title: 'Total Leads', value: totalLeadsCount.toString(), change: '+12.5%', color: 'primary', icon: Users },
-    { title: 'Pipeline Value', value: `$${pipelineVal.toLocaleString()}`, change: '+18.2%', color: 'success', icon: DollarSign },
-    { title: 'Conversion Rate', value: `${conversionRate}%`, change: '-0.5%', color: 'warning', icon: Target },
-    { title: 'Won Deals', value: wonLeads.length.toString(), change: '+8.3%', color: 'primary', icon: TrendingUp }
+    { 
+      title: 'Total Leads', 
+      value: totalLeadsCount.toString(), 
+      change: `${totalLeadsCount} active prospects`, 
+      color: 'primary', 
+      icon: Users 
+    },
+    { 
+      title: 'Pipeline Value', 
+      value: `$${pipelineVal.toLocaleString()}`, 
+      change: 'Combined deal size', 
+      color: 'success', 
+      icon: DollarSign 
+    },
+    { 
+      title: 'Conversion Rate', 
+      value: `${conversionRate}%`, 
+      change: `${wonLeads.length} won of ${totalLeadsCount}`, 
+      color: 'warning', 
+      icon: Target 
+    },
+    { 
+      title: 'Won Deals', 
+      value: wonLeads.length.toString(), 
+      change: `$${wonVal.toLocaleString()} closed`, 
+      color: 'primary', 
+      icon: TrendingUp 
+    }
   ];
 
-  // Callback to add a new lead to the local state list
+  // Dynamic calculation of Sales Pipeline trend from actual leads
+  const pipelineChartData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+
+    if (timeframe === 'Last 30 Days') {
+      // 4 week intervals
+      const weeks = [
+        { month: 'Week 1', value: 0, leads: 0 },
+        { month: 'Week 2', value: 0, leads: 0 },
+        { month: 'Week 3', value: 0, leads: 0 },
+        { month: 'Week 4', value: 0, leads: 0 }
+      ];
+
+      leads.forEach((lead) => {
+        const leadDate = lead.createdAt ? new Date(lead.createdAt) : new Date();
+        const diffDays = Math.floor((now - leadDate) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 30 && diffDays >= 0) {
+          const idx = Math.min(3, Math.floor(diffDays / 7.5));
+          weeks[3 - idx].value += Number(lead.value) || 0;
+          weeks[3 - idx].leads += 1;
+        }
+      });
+      return weeks;
+    }
+
+    if (timeframe === 'This Year') {
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const months = [];
+      for (let m = 0; m <= currentMonth; m++) {
+        months.push({
+          month: monthNames[m],
+          year: currentYear,
+          monthIndex: m,
+          value: 0,
+          leads: 0
+        });
+      }
+
+      leads.forEach((lead) => {
+        const leadDate = lead.createdAt ? new Date(lead.createdAt) : new Date();
+        if (leadDate.getFullYear() === currentYear) {
+          const m = leadDate.getMonth();
+          if (months[m]) {
+            months[m].value += Number(lead.value) || 0;
+            months[m].leads += 1;
+          }
+        }
+      });
+      return months.map(({ month, value, leads: count }) => ({ month, value, leads: count }));
+    }
+
+    // Default: Last 6 Months
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        month: monthNames[d.getMonth()],
+        year: d.getFullYear(),
+        monthIndex: d.getMonth(),
+        value: 0,
+        leads: 0
+      });
+    }
+
+    leads.forEach((lead) => {
+      const leadDate = lead.createdAt ? new Date(lead.createdAt) : (lead.dateAdded ? new Date(lead.dateAdded) : new Date());
+      const item = months.find((m) => m.year === leadDate.getFullYear() && m.monthIndex === leadDate.getMonth());
+      if (item) {
+        item.value += Number(lead.value) || 0;
+        item.leads += 1;
+      }
+    });
+
+    return months.map(({ month, value, leads: count }) => ({ month, value, leads: count }));
+  }, [leads, timeframe]);
+
+  // Callback to add a new lead from dashboard quick modal
   const handleCreateLead = async (e) => {
     e.preventDefault();
-    if (!newName || !newCompany || !newEmail) {
+    if (!newName.trim() || !newCompany.trim() || !newEmail.trim()) {
       toast.error('Name, Company, and Email are required!');
       return;
     }
 
-    const valueNum = newValue ? parseFloat(newValue) : 0;
+    const valueNum = newValue !== '' ? parseFloat(newValue) : 0;
+    if (isNaN(valueNum) || valueNum < 0) {
+      toast.error('Deal value must be a valid non-negative number');
+      return;
+    }
+
     const leadData = {
-      name: newName,
-      company: newCompany,
+      name: newName.trim(),
+      company: newCompany.trim(),
       value: valueNum,
       status: newStatus,
-      email: newEmail,
-      phone: newPhone || 'N/A',
+      email: newEmail.trim(),
+      phone: newPhone.trim() || 'N/A',
       source: 'Other'
     };
 
@@ -111,7 +205,7 @@ export default function Dashboard() {
       setNewEmail('');
       setNewPhone('');
       setIsModalOpen(false);
-    } catch (err) {
+    } catch {
       // Error handled by LeadContext toast
     }
   };
@@ -127,13 +221,13 @@ export default function Dashboard() {
     const csvContent = [
       headers.join(','),
       ...leads.map((l) => [
-        `"${l.name}"`,
-        `"${l.company}"`,
-        l.value,
-        `"${l.status}"`,
-        `"${l.email}"`,
+        `"${(l.name || '').replace(/"/g, '""')}"`,
+        `"${(l.company || '').replace(/"/g, '""')}"`,
+        Number(l.value || 0),
+        `"${l.status || 'New'}"`,
+        `"${l.email || ''}"`,
         `"${l.phone || 'N/A'}"`,
-        `"${l.dateAdded || 'N/A'}"`
+        `"${l.dateAdded || (l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : 'N/A')}"`
       ].join(','))
     ].join('\n');
 
@@ -154,12 +248,16 @@ export default function Dashboard() {
       {/* Dashboard Top Header Row */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Overview</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Welcome back, Sudheer. Here's what's happening today.</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+            Overview
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+            Welcome back, <span className="font-semibold text-slate-800 dark:text-slate-200">{user?.name || 'User'}</span>! Here's what's happening today.
+          </p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-200 dark:shadow-none transition-all duration-200 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-200/50 dark:shadow-none transition-all duration-200 cursor-pointer"
         >
           <Plus size={16} />
           Create New Lead
@@ -180,7 +278,28 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content Layout Grid */}
+      {/* Empty State Banner when no leads exist */}
+      {totalLeadsCount === 0 && (
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
+            <Sparkles size={24} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Welcome to your Startup CRM!</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
+              You haven't registered any prospects yet. Click below to add your first lead and watch your pipeline metrics come alive.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Plus size={14} /> Add First Lead
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Layout Grid: Sales Pipeline & Pipeline Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Sales Pipeline Trend Chart */}
@@ -188,12 +307,16 @@ export default function Dashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">Sales Pipeline</h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Value of deals and number of leads generated</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Value of deals and leads over time</p>
             </div>
-            <select className="text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg focus:outline-hidden cursor-pointer">
-              <option>Last 6 Months</option>
-              <option>Last 30 Days</option>
-              <option>This Year</option>
+            <select 
+              value={timeframe}
+              onChange={(e) => setTimeframe(e.target.value)}
+              className="text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg focus:outline-none cursor-pointer"
+            >
+              <option value="Last 6 Months">Last 6 Months</option>
+              <option value="Last 30 Days">Last 30 Days</option>
+              <option value="This Year">This Year</option>
             </select>
           </div>
 
@@ -221,9 +344,19 @@ export default function Dashboard() {
                   }}
                   itemStyle={{ color: isDarkMode ? '#F8FAFC' : '#0F172A' }}
                   labelStyle={{ color: isDarkMode ? '#94A3B8' : '#64748B' }}
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Pipeline Value']}
+                  formatter={(value, name) => {
+                    if (name === 'value') return [`$${Number(value).toLocaleString()}`, 'Pipeline Value'];
+                    return [value, 'Total Leads'];
+                  }}
                 />
-                <Area type="monotone" dataKey="value" stroke={isDarkMode ? '#38BDF8' : '#2563EB'} strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke={isDarkMode ? '#38BDF8' : '#2563EB'} 
+                  strokeWidth={2} 
+                  fillOpacity={1} 
+                  fill="url(#colorValue)" 
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -235,14 +368,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Row Grid containing QuickActions and Recent Leads */}
+      {/* Bottom Row Grid: Recent Leads + QuickActions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent Leads list */}
         <div>
           <RecentLeads leads={leads} />
         </div>
 
-        {/* QuickActions Panel */}
         <div>
           <QuickActions 
             onAddLead={() => setIsModalOpen(true)}
@@ -290,7 +421,7 @@ export default function Dashboard() {
                     placeholder="e.g. John Doe"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[44px]"
                   />
                 </div>
 
@@ -303,54 +434,59 @@ export default function Dashboard() {
                     placeholder="e.g. Acme Corp"
                     value={newCompany}
                     onChange={(e) => setNewCompany(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[44px]"
                   />
                 </div>
 
                 {/* Email */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Email Address *</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email Address *</label>
                   <input
                     type="email"
                     required
                     placeholder="e.g. john@acme.com"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[44px]"
                   />
                 </div>
 
-                {/* Phone */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Phone Number</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. +1 555-0123"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
-                  />
-                </div>
+                {/* Grid for Phone & Deal Value */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Phone */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phone Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. +1 555-0123"
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[44px]"
+                    />
+                  </div>
 
-                {/* Estimated Value */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Deal Value ($)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 5000"
-                    value={newValue}
-                    onChange={(e) => setNewValue(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px]"
-                  />
+                  {/* Estimated Value */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Deal Value ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="e.g. 5000"
+                      value={newValue}
+                      onChange={(e) => setNewValue(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[44px]"
+                    />
+                  </div>
                 </div>
 
                 {/* Lead Status */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</label>
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-hidden focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-400 transition-all min-h-[44px] cursor-pointer"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[44px] cursor-pointer"
                   >
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
@@ -368,14 +504,14 @@ export default function Dashboard() {
               <button 
                 type="button" 
                 onClick={() => setIsModalOpen(false)}
-                className="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 font-semibold rounded-xl text-sm active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center"
+                className="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 font-semibold rounded-xl text-sm active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center border border-slate-200 dark:border-slate-700"
               >
                 Cancel
               </button>
               <button 
                 type="submit" 
                 form="dashboard-add-lead-form"
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-blue-200 dark:shadow-none active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-blue-200/50 dark:shadow-none active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center"
               >
                 Create Lead
               </button>
@@ -386,4 +522,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

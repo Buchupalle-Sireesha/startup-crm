@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Building, Mail, Phone, AlertCircle } from 'lucide-react';
+import { User, Building, Mail, Phone, DollarSign, AlertCircle } from 'lucide-react';
 
 // Constant arrays for options
 const STATUS_OPTIONS = ['New', 'Contacted', 'Meeting Scheduled', 'Proposal Sent', 'Won', 'Lost'];
@@ -23,6 +23,7 @@ export default function LeadForm({ initialData, onSubmit, onCancel }) {
     company: initialData?.company || '',
     email: initialData?.email || '',
     phone: initialData?.phone === 'N/A' ? '' : (initialData?.phone || ''),
+    value: initialData?.value !== undefined && initialData?.value !== null ? initialData.value : '',
     status: initialData?.status || 'New',
     source: initialData?.source || 'Website',
   });
@@ -75,6 +76,13 @@ export default function LeadForm({ initialData, onSubmit, onCancel }) {
           errorMsg = 'Please enter a valid email address';
         }
       }
+    } else if (fieldName === 'value') {
+      if (value !== '' && value !== undefined && value !== null) {
+        const num = Number(value);
+        if (isNaN(num) || num < 0) {
+          errorMsg = 'Deal value must be a valid non-negative number';
+        }
+      }
     }
 
     setErrors((prev) => {
@@ -98,15 +106,18 @@ export default function LeadForm({ initialData, onSubmit, onCancel }) {
     const isNameValid = validateField('name', formData.name);
     const isCompanyValid = validateField('company', formData.company);
     const isEmailValid = validateField('email', formData.email);
+    const isValueValid = validateField('value', formData.value);
 
     // Set all fields to touched so errors show up visually
     setTouched({
       name: true,
       company: true,
       email: true,
+      value: true,
     });
 
-    if (isNameValid && isCompanyValid && isEmailValid) {
+    if (isNameValid && isCompanyValid && isEmailValid && isValueValid) {
+      const numValue = formData.value === '' || formData.value === undefined ? 0 : Number(formData.value);
       // Clean and sanitize the submission data
       const cleanedData = {
         ...formData,
@@ -114,6 +125,7 @@ export default function LeadForm({ initialData, onSubmit, onCancel }) {
         company: formData.company.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim() || 'N/A',
+        value: isNaN(numValue) || numValue < 0 ? 0 : numValue,
       };
 
       onSubmit(cleanedData);
@@ -241,27 +253,69 @@ export default function LeadForm({ initialData, onSubmit, onCancel }) {
           )}
         </div>
 
-        {/* Phone Number */}
-        <div className="space-y-1.5">
-          <label 
-            htmlFor="lead-phone" 
-            className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-          >
-            Phone Number
-          </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-              <Phone size={16} />
-            </span>
-            <input
-              type="tel"
-              id="lead-phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="e.g. +1 555-0199"
-              className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 rounded-xl text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden transition-all duration-200"
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Phone Number */}
+          <div className="space-y-1.5">
+            <label 
+              htmlFor="lead-phone" 
+              className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+            >
+              Phone Number
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                <Phone size={16} />
+              </span>
+              <input
+                type="tel"
+                id="lead-phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="e.g. +1 555-0199"
+                className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 rounded-xl text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden transition-all duration-200"
+              />
+            </div>
+          </div>
+
+          {/* Deal Value */}
+          <div className="space-y-1.5">
+            <label 
+              htmlFor="lead-value" 
+              className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex justify-between"
+            >
+              <span>Deal Value ($)</span>
+              <span className="text-[10px] text-slate-400 font-normal lowercase">(optional)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                <DollarSign size={16} />
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                id="lead-value"
+                name="value"
+                value={formData.value}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="e.g. 5000"
+                className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/40 border ${
+                  touched.value && errors.value 
+                    ? 'border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-200' 
+                    : 'border-slate-100 dark:border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-100'
+                } rounded-xl text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden transition-all duration-200`}
+                aria-invalid={touched.value && errors.value ? 'true' : 'false'}
+                aria-describedby={touched.value && errors.value ? 'value-error' : undefined}
+              />
+            </div>
+            {touched.value && errors.value && (
+              <p id="value-error" className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5 mt-1">
+                <AlertCircle size={12} className="flex-shrink-0" />
+                <span>{errors.value}</span>
+              </p>
+            )}
           </div>
         </div>
 

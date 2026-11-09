@@ -1,9 +1,9 @@
 import React from "react";
-import { Trophy, Award, Medal, Circle } from "lucide-react";
+import { Trophy, Award, Medal } from "lucide-react";
 
-const formatRupee = (value) => {
-  if (value === undefined || value === null) return "₹0";
-  return "₹" + Math.round(value).toLocaleString("en-IN");
+const formatCurrency = (value) => {
+  if (value === undefined || value === null) return "$0";
+  return "$" + Math.round(value).toLocaleString();
 };
 
 export default function TopPerformersCard({ data = [] }) {
@@ -89,7 +89,7 @@ export default function TopPerformersCard({ data = [] }) {
                       {performer.name}
                     </span>
                     <span className="font-black text-slate-900 dark:text-white tab-nums">
-                      {formatRupee(performer.value)}
+                      {formatCurrency(performer.value)}
                     </span>
                   </div>
                   

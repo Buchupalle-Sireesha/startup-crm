@@ -27,10 +27,9 @@ export function useAnalytics() {
 
   // Simulate dashboard loading state for visual polishing on filter changes
   useEffect(() => {
-    setLoading(true);
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 350); // Small, pleasant delay for skeleton rendering
+    }, 250);
     return () => clearTimeout(timer);
   }, [timeframe, customStartDate, customEndDate]);
 
@@ -84,7 +83,7 @@ export function useAnalytics() {
         prevStart = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0, 0);
         break;
 
-      case "Custom Range":
+      case "Custom Range": {
         if (customStartDate) {
           start = new Date(customStartDate);
           start.setHours(0, 0, 0, 0);
@@ -104,6 +103,7 @@ export function useAnalytics() {
         prevEnd = new Date(start.getTime() - 1);
         prevStart = new Date(start.getTime() - durationMs);
         break;
+      }
 
       default:
         start.setDate(now.getDate() - 29);

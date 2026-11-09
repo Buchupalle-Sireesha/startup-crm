@@ -12,9 +12,10 @@ import StatusBadge from '../leads/StatusBadge';
  * @returns {React.ReactElement} The RecentLeads component.
  */
 export default function RecentLeads({ leads = [] }) {
-  // Extract the 5 most recent leads. Assuming they are pre-sorted or we sort them by date/id descending.
-  // We will slice the first 5 elements.
-  const topLeads = leads.slice(0, 5);
+  // Sort leads newest-first and extract top 5
+  const topLeads = [...leads]
+    .sort((a, b) => new Date(b.createdAt || b.dateAdded || 0) - new Date(a.createdAt || a.dateAdded || 0))
+    .slice(0, 5);
 
   // Helper to generate initials from a name
   const getInitials = (name = '') => {
@@ -54,20 +55,20 @@ export default function RecentLeads({ leads = [] }) {
                 const initials = lead.initials || getInitials(lead.name);
                 const displayValue = typeof lead.value === 'number' 
                   ? `$${lead.value.toLocaleString()}` 
-                  : lead.value;
+                  : (lead.value ? `$${Number(lead.value).toLocaleString()}` : '$0');
 
                 return (
-                  <tr key={lead.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-850/20 transition-colors group">
+                  <tr key={lead._id || lead.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-850/20 transition-colors group">
                     {/* Name column with avatar */}
                     <td className="py-3 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-xs shadow-xs group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all duration-200">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-xs shadow-xs group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all duration-200 shrink-0">
                         {initials}
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 truncate">
                           {lead.name}
                         </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 font-normal">{lead.email}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-normal truncate">{lead.email}</p>
                       </div>
                     </td>
                     
@@ -77,7 +78,7 @@ export default function RecentLeads({ leads = [] }) {
                     </td>
                     
                     {/* Value column */}
-                    <td className="py-3 text-slate-900 dark:text-slate-100 font-semibold">
+                    <td className="py-3 text-slate-900 dark:text-slate-100 font-bold">
                       {displayValue}
                     </td>
                     
@@ -88,7 +89,7 @@ export default function RecentLeads({ leads = [] }) {
                     
                     {/* Date added */}
                     <td className="py-3 text-right text-slate-400 dark:text-slate-500 font-normal text-xs">
-                      {lead.dateAdded || 'N/A'}
+                      {lead.dateAdded || (lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : 'N/A')}
                     </td>
                   </tr>
                 );
@@ -106,4 +107,3 @@ export default function RecentLeads({ leads = [] }) {
     </div>
   );
 }
-

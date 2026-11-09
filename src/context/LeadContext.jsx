@@ -18,13 +18,20 @@ export function LeadProvider({ children }) {
 
   /**
    * Fetches leads from the backend using the leadService.
+   * Defaults to fetching all recent leads (up to 100) sorted by creation date descending.
    * 
    * @param {Object} params - Query filters, page, sorting.
    */
   const fetchLeads = useCallback(async (params = {}) => {
     try {
       setIsLoading(true);
-      const response = await leadService.getLeads(params);
+      const queryParams = {
+        limit: 100,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        ...params
+      };
+      const response = await leadService.getLeads(queryParams);
       setLeads(response.data || []);
       if (response.pagination) {
         setPagination(response.pagination);
@@ -88,6 +95,24 @@ export function LeadProvider({ children }) {
   };
 
   /**
+   * Updates lead status directly (fast patch) and updates state immediately.
+   */
+  const updateLeadStatus = async (id, status) => {
+    try {
+      const response = await leadService.updateLeadStatus(id, status);
+      const updated = response.data;
+      setLeads((prev) =>
+        prev.map((lead) => (lead._id === id || lead.id === id ? updated : lead))
+      );
+      toast.success(`Status updated to "${status}"`);
+      return updated;
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      throw error;
+    }
+  };
+
+  /**
    * Deletes a lead record by ID.
    */
   const deleteLead = async (id) => {
@@ -118,8 +143,10 @@ export function LeadProvider({ children }) {
         isLoading,
         pagination,
         fetchLeads,
+        refreshLeads: fetchLeads,
         addLead,
         updateLead,
+        updateLeadStatus,
         deleteLead,
         getLeadById
       }}

@@ -1,11 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Plus, 
   SlidersHorizontal, 
   X, 
   LayoutGrid, 
   Table, 
-  UserPlus
+  UserPlus,
+  FileDown,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LeadForm from '../components/leads/LeadForm';
@@ -18,24 +21,23 @@ import { useLeads } from '../context/LeadContext';
 
 /**
  * Leads Page Component
- * Main page assembling LeadTable, LeadCard list, and LeadForm inside a modal/slide-over.
- * Manages full CRUD operations with react-hot-toast notifications.
+ * Coordinates lead filtering, multi-field search, sorting, status fast-patching,
+ * view modes (table/cards), deletion with confirmation dialog, and CSV export.
  */
 export default function Leads() {
-  // --- CONTEXT ---
-  const { leads, addLead, updateLead, deleteLead } = useLeads();
+  // Context operations
+  const { leads, addLead, updateLead, deleteLead, updateLeadStatus } = useLeads();
 
-  // --- STATE ---
+  // Component states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
-  const [sortBy, setSortBy] = useState('name'); // name, company, dateAdded
-  const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
+  const [sortBy, setSortBy] = useState('dateAdded'); // name, company, value, dateAdded
+  const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [viewMode, setViewMode] = useState('table'); // table, card
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState(null); // null means create mode, object means edit mode
+  const [selectedLead, setSelectedLead] = useState(null); // null = create mode, object = edit mode
+  const [leadToDelete, setLeadToDelete] = useState(null); // confirmation dialog target
 
-  // --- CRUD ACTIONS ---
-  
   // Handles opening the form modal for editing a specific lead
   const handleEditClick = (lead) => {
     setSelectedLead(lead);
@@ -52,32 +54,41 @@ export default function Leads() {
   const handleFormSubmit = async (formData) => {
     try {
       if (selectedLead) {
-        // Edit Flow
         const leadId = selectedLead._id || selectedLead.id;
         await updateLead(leadId, formData);
       } else {
-        // Create Flow
         await addLead(formData);
       }
       setIsModalOpen(false);
       setSelectedLead(null);
-    } catch (err) {
+    } catch {
       // Error handled by LeadContext toast
     }
   };
 
-  // Handles deleting a lead
-  const handleDeleteLead = (id, name) => {
-    deleteLead(id);
+  // Open confirmation dialog before deleting
+  const handleDeletePrompt = (id, name) => {
+    setLeadToDelete({ id, name });
+  };
+
+  // Confirmed delete handler
+  const handleConfirmDelete = async () => {
+    if (!leadToDelete) return;
+    try {
+      await deleteLead(leadToDelete.id);
+      setLeadToDelete(null);
+    } catch {
+      // Error handled by LeadContext toast
+    }
   };
 
   // Handles changing sorting criteria
   const handleSort = (field) => {
     if (sortBy === field) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortBy(field);
-      setSortOrder('asc');
+      setSortOrder(field === 'value' || field === 'dateAdded' ? 'desc' : 'asc');
     }
   };
 
@@ -87,43 +98,96 @@ export default function Leads() {
     setActiveFilter('All');
   };
 
-  // --- COMPUTATIONS (Memoized) ---
+  // Filtered and sorted leads computation
   const filteredLeads = useMemo(() => {
     return leads
-      .filter(lead => activeFilter === 'All' || lead.status === activeFilter)
+      .filter(lead => activeFilter === 'All' || (lead.status || '').toLowerCase() === activeFilter.toLowerCase())
       .filter(lead => 
         (lead.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
         (lead.company || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
         (lead.email || '').toLowerCase().includes(searchQuery.toLowerCase())
       )
       .sort((a, b) => {
-        let comparison = 0;
+        let comparison;
         if (sortBy === 'dateAdded') {
-          comparison = new Date(a.dateAdded || a.createdAt) - new Date(b.dateAdded || b.createdAt);
+          const dateA = new Date(a.dateAdded || a.createdAt || 0).getTime();
+          const dateB = new Date(b.dateAdded || b.createdAt || 0).getTime();
+          comparison = dateA - dateB;
+        } else if (sortBy === 'value') {
+          const valA = Number(a.value) || 0;
+          const valB = Number(b.value) || 0;
+          comparison = valA - valB;
         } else {
-          comparison = (a[sortBy] || '').localeCompare(b[sortBy] || '');
+          comparison = (a[sortBy] || '').toString().localeCompare((b[sortBy] || '').toString());
         }
         return sortOrder === 'asc' ? comparison : -comparison;
       });
   }, [leads, searchQuery, activeFilter, sortBy, sortOrder]);
 
+  // CSV Export utility
+  const handleExportCSV = () => {
+    const listToExport = filteredLeads.length > 0 ? filteredLeads : leads;
+    if (listToExport.length === 0) {
+      toast.error('No lead records to export');
+      return;
+    }
+
+    const headers = ['Name', 'Company', 'Deal Value ($)', 'Status', 'Email', 'Phone', 'Source', 'Date Added'];
+    const csvContent = [
+      headers.join(','),
+      ...listToExport.map((l) => [
+        `"${(l.name || '').replace(/"/g, '""')}"`,
+        `"${(l.company || '').replace(/"/g, '""')}"`,
+        Number(l.value || 0),
+        `"${l.status || 'New'}"`,
+        `"${l.email || ''}"`,
+        `"${l.phone || 'N/A'}"`,
+        `"${l.source || 'Website'}"`,
+        `"${l.dateAdded || (l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : 'N/A')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success(`Exported ${listToExport.length} leads to CSV`);
+  };
+
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 relative">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 relative select-none">
       
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Leads</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage and track your startup's customer pipeline.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+            Manage, filter, and track your customer pipeline registry.
+          </p>
         </div>
-        <button 
-          onClick={handleAddClick}
-          className="inline-flex items-center justify-center gap-2 px-4.5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-sm font-semibold shadow-xs shadow-blue-200/40 dark:shadow-none transition-all duration-150 cursor-pointer"
-          aria-label="Add New Lead"
-        >
-          <Plus size={16} />
-          Add Lead
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-sm font-semibold transition-all cursor-pointer shadow-xs"
+            title="Export Leads to CSV"
+          >
+            <FileDown size={16} />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+          <button 
+            onClick={handleAddClick}
+            className="inline-flex items-center justify-center gap-2 px-4.5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-sm font-semibold shadow-xs shadow-blue-200/40 dark:shadow-none transition-all duration-150 cursor-pointer"
+            aria-label="Add New Lead"
+          >
+            <Plus size={16} />
+            Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Control bar (Search, Sort & View Mode Toggle) */}
@@ -152,6 +216,12 @@ export default function Leads() {
                 Company {sortBy === 'company' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
               </button>
               <button 
+                onClick={() => handleSort('value')} 
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sortBy === 'value' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'hover:text-slate-800 dark:hover:text-slate-100'}`}
+              >
+                Value {sortBy === 'value' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
                 onClick={() => handleSort('dateAdded')} 
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sortBy === 'dateAdded' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'hover:text-slate-800 dark:hover:text-slate-100'}`}
               >
@@ -160,13 +230,13 @@ export default function Leads() {
             </div>
           </div>
 
-          {/* Toggle View mode controllers - only shown on Tablet */}
-          <div className="hidden md:flex lg:hidden items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 hidden md:inline">View:</span>
+          {/* View mode toggle: Available across Desktop and Tablet */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">View:</span>
             <div className="flex bg-slate-50 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-100 dark:border-slate-800">
               <button 
                 onClick={() => setViewMode('table')} 
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'} min-h-[44px] min-w-[44px] flex items-center justify-center`}
+                className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                 title="Table List View"
                 aria-label="Toggle to Table View"
               >
@@ -174,7 +244,7 @@ export default function Leads() {
               </button>
               <button 
                 onClick={() => setViewMode('card')} 
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'card' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'} min-h-[44px] min-w-[44px] flex items-center justify-center`}
+                className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'card' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                 title="Card Grid View"
                 aria-label="Toggle to Card View"
               >
@@ -185,7 +255,7 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* Filter Tabs (Horizontal scrolling on small mobile viewports) */}
+      {/* Filter Tabs */}
       <FilterBar 
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
@@ -193,81 +263,97 @@ export default function Leads() {
       />
 
       {/* Main Content Listings */}
-      
-      {/* Mobile viewport: Card view only (Table hidden) */}
-      <div className="block md:hidden space-y-4">
-        {filteredLeads.length > 0 ? (
-          filteredLeads.map((lead) => (
-            <LeadCard 
-              key={lead.id}
-              lead={lead}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteLead}
-            />
-          ))
-        ) : (
-          <EmptyState 
-            totalLeadsCount={leads.length}
-            onClearFilters={handleClearFilters}
-          />
-        )}
-      </div>
+      {filteredLeads.length > 0 ? (
+        <>
+          {/* Mobile Viewport: Cards */}
+          <div className="block sm:hidden space-y-4">
+            {filteredLeads.map((lead) => (
+              <LeadCard 
+                key={lead._id || lead.id}
+                lead={lead}
+                onEdit={handleEditClick}
+                onDelete={handleDeletePrompt}
+                onStatusChange={updateLeadStatus}
+              />
+            ))}
+          </div>
 
-      {/* Tablet viewport: Hybrid (allows toggle between table and cards) */}
-      <div className="hidden md:block lg:hidden">
-        {filteredLeads.length > 0 ? (
-          viewMode === 'table' ? (
-            <LeadTable 
-              leads={filteredLeads}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteLead}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
-              onSort={handleSort}
-            />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {filteredLeads.map((lead) => (
-                <LeadCard 
-                  key={lead.id}
-                  lead={lead}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteLead}
-                />
-              ))}
+          {/* Desktop & Tablet Viewport: Responsive toggle between Table and Card Grid */}
+          <div className="hidden sm:block">
+            {viewMode === 'table' ? (
+              <LeadTable 
+                leads={filteredLeads}
+                onEdit={handleEditClick}
+                onDelete={handleDeletePrompt}
+                onStatusChange={updateLeadStatus}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredLeads.map((lead) => (
+                  <LeadCard 
+                    key={lead._id || lead.id}
+                    lead={lead}
+                    onEdit={handleEditClick}
+                    onDelete={handleDeletePrompt}
+                    onStatusChange={updateLeadStatus}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <EmptyState 
+          totalLeadsCount={leads.length}
+          onClearFilters={handleClearFilters}
+        />
+      )}
+
+      {/* Delete Confirmation Modal Dialog */}
+      {leadToDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="alertdialog">
+          <div 
+            onClick={() => setLeadToDelete(null)}
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 border border-slate-100 dark:border-slate-800 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+              <AlertTriangle size={24} />
             </div>
-          )
-        ) : (
-          <EmptyState 
-            totalLeadsCount={leads.length}
-            onClearFilters={handleClearFilters}
-          />
-        )}
-      </div>
-
-      {/* Desktop viewport: Full table view with all columns visible */}
-      <div className="hidden lg:block">
-        {filteredLeads.length > 0 ? (
-          <LeadTable 
-            leads={filteredLeads}
-            onEdit={handleEditClick}
-            onDelete={handleDeleteLead}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-          />
-        ) : (
-          <EmptyState 
-            totalLeadsCount={leads.length}
-            onClearFilters={handleClearFilters}
-          />
-        )}
-      </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete Lead?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Are you sure you want to permanently delete <span className="font-semibold text-slate-800 dark:text-slate-200">{leadToDelete.name}</span>? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setLeadToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Trash2 size={13} />
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lead Form Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4" role="dialog" aria-modal="true">
-          {/* Backdrop Overlay with Blur */}
+          {/* Backdrop Overlay */}
           <div 
             onClick={() => setIsModalOpen(false)}
             className="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/65 backdrop-blur-xs transition-opacity duration-300"
@@ -293,7 +379,7 @@ export default function Leads() {
                 </button>
               </div>
 
-              {/* Render the Form inside the drawer container */}
+              {/* Form inside drawer container */}
               <LeadForm 
                 initialData={selectedLead}
                 onSubmit={handleFormSubmit}

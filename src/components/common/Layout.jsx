@@ -8,7 +8,8 @@ import {
   ChevronRight, 
   LayoutDashboard, 
   Users, 
-  BarChart3 
+  BarChart3,
+  User 
 } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
 
@@ -69,6 +70,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Leads', path: '/leads', icon: Users },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: 'Profile', path: '/profile', icon: User },
   ];
 
   // Determine current section title based on pathname
