@@ -42,7 +42,7 @@ export default function ForecastCard({ forecastData }) {
         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block leading-none">
           Predicted Revenue Next Month
         </span>
-        <h4 className="text-3xl font-black text-slate-905 dark:text-slate-50 tracking-tight">
+        <h4 className="text-3xl font-black text-slate-900 dark:text-slate-50 tracking-tight">
           {formatCurrency(forecast)}
         </h4>
       </div>

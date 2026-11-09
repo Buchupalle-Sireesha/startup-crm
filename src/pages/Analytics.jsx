@@ -40,7 +40,7 @@ export default function Analytics() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-905 dark:text-slate-50 tracking-tight">
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
             Analytics Dashboard
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5 font-medium">
