@@ -1,16 +1,165 @@
-# React + Vite
+# Startup CRM Lite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-stack Customer Relationship Management (CRM) application designed to help startups manage leads, monitor business performance, and track customer information through a simple dashboard.
 
-Currently, two official plugins are available:
+## 🚀 Live Links
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Resource | Link |
+|---|---|
+| 🌐 Live Frontend | https://startup-crm-rho.vercel.app |
+| ⚙️ Backend API | https://startup-crm-backend-1k2o.onrender.com |
+| 💚 Backend Health Check | https://startup-crm-backend-1k2o.onrender.com/api/health |
+| 📂 GitHub Repository | https://github.com/Buchupalle-Sireesha/startup-crm |
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- User registration and secure login
+- JWT-based authentication
+- Dashboard with lead statistics
+- Create, view, update and delete leads
+- Search and filter leads
+- Analytics and monthly statistics
+- Revenue forecasting
+- Dark mode and light mode
+- User-specific data protection
+- Responsive user interface
 
-## Expanding the ESLint configuration
+## 🛠️ Technologies Used
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+**Frontend**
+- React.js
+- Vite
+- Tailwind CSS
+- JavaScript
+- React Router
+- Lucide React
+
+**Backend**
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JSON Web Tokens (JWT)
+- bcrypt password hashing
+
+**Deployment**
+- Vercel – Frontend hosting
+- Render – Backend hosting
+- MongoDB Atlas – Database hosting
+
+## 📁 Project Structure
+
+```text
+startup-crm/
+│
+├── backend/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   ├── tests/
+│   └── server.js
+│
+├── src/
+│   ├── components/
+│   ├── pages/
+│   ├── contexts/
+│   ├── assets/
+│   └── index.css
+│
+├── public/
+├── package.json
+└── README.md
+```
+
+## 💻 Run Locally
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/Buchupalle-Sireesha/startup-crm.git
+```
+
+**2. Open the project**
+
+```bash
+cd startup-crm
+```
+
+**3. Install frontend dependencies**
+
+```bash
+npm install
+```
+
+**4. Install backend dependencies**
+
+```bash
+cd backend
+npm install
+```
+
+**5. Configure environment variables**
+
+Create the required `.env` files using the project's environment variable configuration.
+
+Backend variables:
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `PORT`
+- `FRONTEND_URL`
+
+Frontend variable:
+- `VITE_API_URL`
+
+Never upload actual passwords, tokens or secret keys to GitHub.
+
+**6. Start the backend**
+
+From the backend folder:
+
+```bash
+npm start
+```
+
+**7. Start the frontend**
+
+Open another terminal in the project root:
+
+```bash
+npm run dev
+```
+
+Open the localhost URL displayed in the terminal.
+
+## 🧪 Backend Testing
+
+Run the integration test suite from the project root:
+
+```bash
+npm test
+```
+
+Latest local test result:
+
+- 53 assertions passed
+- 0 failures
+
+Tests cover authentication, lead management, analytics, database operations, CORS and tenant isolation.
+
+## 🔐 Security
+
+- Passwords are stored using bcrypt hashing.
+- JWT authentication protects private routes.
+- User-specific lead access is enforced.
+- Environment variables are used for sensitive configuration.
+
+## 👩‍💻 Author
+
+**Buchupalle Sireesha**
+
+GitHub: https://github.com/Buchupalle-Sireesha
+
+## 📌 Project
+
+**Startup CRM Lite – Full Stack Development Internship Project**
+
